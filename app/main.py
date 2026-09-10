@@ -1,0 +1,53 @@
+﻿from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from app.api.companies import router as companies_router
+from app.api.crawl import router as crawl_router
+from app.api.import_export import router as io_router
+from app.api.ui import router as ui_router
+from app.api.contact import router as contact_router
+from app.api.sheet_contact import router as sheet_contact_router
+from app.api.db_contact import router as db_contact_router
+from app.api.country_source import router as country_source_router
+from app.api.country_crawl import router as country_crawl_router
+from app.api.company_source import router as company_source_router
+from app.api.contact_enrichment import router as contact_enrichment_router
+from app.api.contact_campaign import router as contact_campaign_router
+from app.api.sheet_sync import router as sheet_sync_router
+from app.api.emkt import router as emkt_router
+from app.api.emkt_lists import router as emkt_lists_router
+from app.api.emkt_tracking import router as emkt_tracking_router
+from app.database import Base, engine, ensure_schema
+
+Base.metadata.create_all(bind=engine)
+ensure_schema()
+
+app = FastAPI(title="Company Crawl Platform", version="2.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+app.include_router(ui_router)
+app.include_router(crawl_router)
+app.include_router(companies_router)
+app.include_router(io_router)
+app.include_router(contact_router)
+app.include_router(sheet_contact_router)
+app.include_router(db_contact_router)
+app.include_router(country_source_router)
+app.include_router(country_crawl_router)
+app.include_router(company_source_router)
+app.include_router(contact_enrichment_router)
+app.include_router(contact_campaign_router)
+app.include_router(sheet_sync_router)
+app.include_router(emkt_router)
+app.include_router(emkt_lists_router)
+app.include_router(emkt_tracking_router)

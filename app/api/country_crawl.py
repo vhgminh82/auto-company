@@ -1,0 +1,109 @@
+from __future__ import annotations
+
+import os
+import subprocess
+from pathlib import Path
+
+import psutil
+from fastapi import APIRouter, HTTPException
+
+
+router = APIRouter(prefix="/api/country-crawl", tags=["country-crawl"])
+CRAWL_DIR = Path(__file__).resolve().parents[2] / "craw_country"
+BATCH_FILE = CRAWL_DIR / "1_find_country_company.bat"
+PROGRESS_FILE = CRAWL_DIR / "results" / "crawl_progress.txt"
+PID_FILE = CRAWL_DIR / "results" / "crawl.pid"
+_process: subprocess.Popen | None = None
+
+
+def _saved_pid() -> int | None:
+    try:
+        return int(PID_FILE.read_text(encoding="ascii").strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _pid_running(pid: int | None) -> bool:
+    if not pid:
+        return False
+    try:
+        process = psutil.Process(pid)
+        return process.is_running() and process.status() != psutil.STATUS_ZOMBIE
+    except (psutil.NoSuchProcess, psutil.AccessDenied, OSError, SystemError):
+        return False
+
+
+def _progress() -> dict:
+    if not PROGRESS_FILE.exists():
+        return {"state": "idle", "current": 0, "total": 0, "query": ""}
+    try:
+        parts = PROGRESS_FILE.read_text(encoding="utf-8").split("|", 4)
+        state, current, total = parts[:3]
+        query = parts[3].strip() if len(parts) > 3 else ""
+        found = int(parts[4]) if len(parts) > 4 and parts[4].strip().isdigit() else 0
+        return {"state": state.lower(), "current": int(current), "total": int(total), "query": query, "found": found}
+    except (OSError, ValueError):
+        return {"state": "running", "current": 0, "total": 0, "query": "", "found": 0}
+
+
+@router.post("/start")
+def start_crawl():
+    global _process
+    if not BATCH_FILE.is_file():
+        raise HTTPException(404, "Không tìm thấy file crawl.")
+    running_pid = _process.pid if _process and _process.poll() is None else _saved_pid()
+    if _pid_running(running_pid):
+        return {"started": False, **_progress()}
+    PROGRESS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    PROGRESS_FILE.unlink(missing_ok=True)
+    _process = subprocess.Popen(
+        ["cmd.exe", "/c", str(BATCH_FILE)],
+        cwd=CRAWL_DIR,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    PID_FILE.write_text(str(_process.pid), encoding="ascii")
+    return {"started": True, "state": "running", "current": 0, "total": 0, "query": "", "found": 0}
+
+
+@router.post("/stop")
+def stop_crawl():
+    global _process
+    current = _progress()
+    pid = _process.pid if _process and _process.poll() is None else _saved_pid()
+    if _pid_running(pid):
+        try:
+            root = psutil.Process(pid)
+            processes = root.children(recursive=True) + [root]
+            for process in reversed(processes):
+                try:
+                    process.terminate()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            _, alive = psutil.wait_procs(processes, timeout=3)
+            for process in alive:
+                try:
+                    process.kill()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    _process = None
+    PID_FILE.unlink(missing_ok=True)
+    PROGRESS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    PROGRESS_FILE.write_text(
+        f"STOPPED|{current['current']}|{current['total']}|{current['query']}|{current.get('found', 0)}",
+        encoding="utf-8",
+    )
+    return {"stopped": True, **_progress()}
+
+
+@router.get("/status")
+def crawl_status():
+    result = _progress()
+    pid = _process.pid if _process and _process.poll() is None else _saved_pid()
+    result["running"] = _pid_running(pid)
+    if not result["running"]:
+        PID_FILE.unlink(missing_ok=True)
+    return result

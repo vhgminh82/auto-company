@@ -1,0 +1,14 @@
+﻿fastapi==0.115.12
+uvicorn==0.30.6
+sqlalchemy==2.0.36
+pydantic==2.9.2
+httpx==0.27.2
+beautifulsoup4==4.12.3
+pandas==2.2.3
+openpyxl==3.1.5
+python-multipart==0.0.12
+jinja2==3.1.4
+playwright==1.55.0
+google-api-python-client==2.181.0
+google-auth==2.40.3
+cryptography==45.0.7

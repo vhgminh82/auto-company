@@ -1,0 +1,222 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Company Crawl Platform</title>
+  <link rel="stylesheet" href="/static/styles.css?v=contact-campaign-1" />
+</head>
+<body>
+  <main class="container">
+    <h1>Company Crawl Platform</h1>
+
+    <nav class="tabs" aria-label="Các tính năng">
+      <button class="tab-button active" data-tab="contactTab">Gửi contact</button>
+      <button class="tab-button" data-tab="emktTab">Gửi eMKT</button>
+      <button class="tab-button" data-tab="dataTab">Bảng dữ liệu</button>
+      <button class="tab-button" data-tab="sourceTab">Nguồn dữ liệu</button>
+    </nav>
+
+    <div id="contactTab" class="tab-content">
+    <div class="emkt-subtabs contact-subtabs"><button class="emkt-subtab active" data-contact-panel="run">Contact</button><button class="emkt-subtab" data-contact-panel="history">Thống kê</button><button class="emkt-subtab" data-contact-panel="scenarios">Kịch bản</button><button class="emkt-subtab" data-contact-panel="lists">List contact</button><button class="emkt-subtab" data-contact-panel="check">Check contact</button></div>
+    <section id="contactRunPanel" class="panel contact-subpanel">
+      <h2>Gửi contact</h2>
+      <div class="grid"><label>Kịch bản<select id="contactScenarioSelect"><option value="">Chọn kịch bản</option></select></label><fieldset class="contact-list-picker"><legend>Chọn list contact</legend><div id="contactListOptions">Đang tải...</div></fieldset></div>
+      <div class="actions"><button id="startContactCampaignBtn" type="button">Bắt đầu</button><span id="contactCampaignStatus">Chưa chạy.</span></div>
+      <h3>Kết quả lần chạy này</h3><div id="contactCurrentResult">Chưa có lần chạy.</div>
+    </section>
+    <section id="contactHistoryPanel" class="panel contact-subpanel" hidden><h2>Thống kê</h2><div id="contactHistory">Đang tải...</div></section>
+    <section id="contactScenariosPanel" class="panel contact-subpanel" hidden><div class="campaign-header"><h2>Kịch bản</h2><button id="newContactScenarioBtn" type="button">+ Thêm</button></div><div id="contactScenarios">Đang tải...</div></section>
+    <section id="contactListsPanel" class="panel contact-subpanel" hidden><div class="campaign-header"><h2>List contact</h2><button id="newContactListBtn" type="button">+ New</button></div><p>Đây là bộ list riêng của Contact, chỉ lấy dữ liệu có trạng thái contact = ok.</p><div class="list-toolbar"><select id="contactListCountryFilter"><option value="">Tất cả quốc gia</option></select><select id="contactListIndustryFilter"><option value="">Tất cả ngành</option></select><button id="contactListFilterBtn" type="button">Lọc</button></div><div id="contactLists">Đang tải...</div></section>
+    <section id="contactCheckPanel" class="panel contact-subpanel" hidden><h2>Check contact</h2><p>Kiểm tra website trong bảng dữ liệu và ghi trạng thái vào cột contact.</p><div class="grid"><input id="contactUrl" placeholder="https://example.com" /><button id="inspectContactBtn">Kiểm tra thử</button></div><p id="contactStatus">Chưa kiểm tra.</p><div id="contactForms"></div><div class="actions"><button id="runDbContactBtn">Bắt đầu kiểm tra toàn bộ DB</button><button id="stopDbContactBtn" class="danger-button" type="button" disabled>Dừng</button><span id="dbContactStatus">Chưa chạy.</span></div></section>
+
+    <section class="panel contact-legacy-panel" hidden>
+      <h2>Cập nhật trạng thái Contact vào Google Sheet</h2>
+      <div class="grid">
+        <input id="sheetUrl" value="https://docs.google.com/spreadsheets/d/1MxZpehxU5F91hRV72afB4oESX3AcTFeNLz-oIZfmaZk/edit" placeholder="Google Sheet URL" />
+        <input id="sheetName" value="company" placeholder="Tên tab" />
+        <input id="sheetBatchSize" type="number" value="100" min="1" max="100" />
+        <button id="runSheetBtn">Chạy đến hết</button>
+        <button id="runDbContactBtnLegacy">Cập nhật Contact cho DB</button>
+      </div>
+      <p id="sheetStatus">Chưa chạy.</p>
+      <p id="dbContactStatus">DB: Chưa chạy.</p>
+    </section>
+    <div id="contactScenarioModal" class="modal" hidden><div class="modal-content"><button id="closeContactScenarioModal" class="modal-close" type="button">×</button><h2>Kịch bản contact</h2><form id="contactScenarioForm"><input name="name" placeholder="Tên kịch bản" required /><p>Điền nội dung muốn tự động gửi vào các trường contact form. Có thể dùng {{company_name}} và {{website}}.</p><div class="scenario-fields-grid"><label>Họ tên<input data-scenario-field="name" placeholder="Nguyễn Văn A" /></label><label>Tên công ty<input data-scenario-field="company" placeholder="CNCTech" /></label><label>Email<input data-scenario-field="email" type="email" placeholder="contacts@example.com" /></label><label>Điện thoại<input data-scenario-field="phone" placeholder="+84..." /></label><label>Tiêu đề<input data-scenario-field="subject" placeholder="Nội dung liên hệ" /></label><label>Website<input data-scenario-field="website" placeholder="https://..." /></label><label>Địa chỉ<input data-scenario-field="address" placeholder="Địa chỉ công ty" /></label><label>Nội dung<textarea data-scenario-field="message" rows="3" placeholder="Xin chào {{company_name}}..."></textarea></label></div><label>Trường tùy chỉnh<small> Mỗi dòng: tên trường=giá trị (ví dụ: your-name=Nguyễn Văn A)</small><textarea name="custom_fields" rows="4" placeholder="your-name=Nguyễn Văn A&#10;your-company=CNCTech"></textarea></label><div class="actions"><button type="submit">Lưu kịch bản</button><span id="contactScenarioStatus"></span></div></form></div></div>
+    <div id="contactListModal" class="modal" hidden><div class="modal-content list-modal-content"><button id="closeContactListModal" class="modal-close" type="button">×</button><h2>New list contact</h2><form id="contactListForm"><input name="name" placeholder="Tên list" required /><input type="hidden" name="country_filter" id="contactNewListCountry" /><div><strong>Quốc gia</strong><div id="contactNewListCountryOptions" class="multi-options"></div></div><input type="hidden" name="industry_filter" id="contactNewListIndustry" /><div><strong>Ngành</strong><div id="contactNewListIndustryOptions" class="multi-options"></div></div><p>List này chỉ lấy các dòng có contact = ok.</p><div class="actions"><button type="submit">Lưu list</button><span id="contactListModalStatus"></span></div></form></div></div>
+    </div>
+
+    <div id="emktTab" class="tab-content" hidden>
+    <div class="emkt-subtabs"><button class="emkt-subtab" data-emkt-tab="lists">List</button><button class="emkt-subtab active" data-emkt-tab="campaign">Campaign</button><button class="emkt-subtab" data-emkt-tab="stats">Thống kê</button><button class="emkt-subtab" data-emkt-tab="accounts">Tài khoản</button></div>
+    <section id="emktAccountsPanel" class="panel emkt-subpanel" data-emkt-panel="accounts" hidden>
+      <h2>Tài khoản AWS SES</h2>
+      <p class="notice">Chỉ gửi tới danh sách bạn có quyền sử dụng. Khóa bí mật được mã hóa cục bộ và không hiển thị lại.</p>
+      <button id="openEmktAccountBtn" type="button">+ Thêm tài khoản SES</button>
+      <div id="emktAccounts"></div>
+      <p id="emktAccountStatus"></p>
+    </section>
+
+    <section id="emktCampaignPanel" class="panel emkt-campaign-panel emkt-subpanel" data-emkt-panel="campaign">
+      <div class="campaign-header"><h2>Campaigns (<span id="emktCampaignCount">0</span>)</h2><button id="openNewCampaignBtn" type="button">+ New</button></div>
+      <div class="campaign-toolbar"><div class="campaign-search"><input id="emktCampaignSearch" placeholder="Name or subject" /><button id="emktCampaignSearchBtn" type="button">⌕</button></div><div class="campaign-pagination"><button id="emktCampaignPrev" type="button" disabled>‹</button><span id="emktCampaignPage">1</span><button id="emktCampaignNext" type="button" disabled>›</button></div></div>
+      <div id="emktCampaigns">Đang tải...</div>
+      <form id="emktCampaignForm" hidden>
+        <h3>Tạo chiến dịch</h3>
+        <div class="grid">
+          <input name="name" placeholder="Tên chiến dịch" required />
+          <select name="account_id" id="emktAccountSelect" required><option value="">Chọn tài khoản SES</option></select>
+          <input name="subject" placeholder="Tiêu đề email (hỗ trợ {{company_name}})" required />
+          <label class="schedule-field">Lịch gửi (để trống nếu gửi thủ công)<input name="scheduled_at" type="datetime-local" /></label>
+        </div>
+        <fieldset class="campaign-list-picker"><legend>Chọn list gửi đến</legend><div id="emktCampaignListOptions" class="campaign-list-options"><span>Đang tải list...</span></div></fieldset>
+        <label>Nội dung HTML (có thể dùng {{company_name}}, {{website}})<textarea name="html_body" rows="8" placeholder="<h1>Xin chào {{company_name}}</h1>"></textarea></label>
+        <label>Nội dung văn bản dự phòng<textarea name="text_body" rows="5" placeholder="Xin chào {{company_name}}"></textarea></label>
+        <div class="actions"><button type="submit">Lưu chiến dịch</button><button type="button" id="emktPreviewBtn">Preview</button><span id="emktCampaignStatus"></span></div>
+      </form>
+    </section>
+    <section id="emktListsPanel" class="panel emkt-subpanel" data-emkt-panel="lists" hidden>
+      <div class="campaign-header"><h2>Lists</h2><button id="openNewListBtn" type="button" onclick="document.getElementById('emktListModal').hidden=false; document.getElementById('emktListModalStatus').textContent=''">+ New</button></div>
+      <div class="list-toolbar"><select id="emktListCountry"><option value="">Tất cả quốc gia</option></select><select id="emktListIndustry"><option value="">Tất cả ngành</option></select><button id="emktListLoadBtn" type="button">Lọc</button></div>
+      <p id="emktListSummary">Chưa tải danh sách khách hàng.</p>
+      <div id="emktListCustomers" class="campaign-table-wrap"></div>
+    </section>
+    <section id="emktStatsPanel" class="panel emkt-subpanel" data-emkt-panel="stats" hidden>
+      <h2>Thống kê</h2>
+      <div class="stats-filter"><label>Khoảng thời gian<select id="emktStatsPeriod"><option value="all">Tất cả thời gian</option><option value="day">Hôm nay</option><option value="week">Tuần này</option><option value="month">Tháng này</option><option value="year">Năm nay</option><option value="custom">Tùy chỉnh</option></select></label><label>Từ ngày<input id="emktStatsStart" type="date" disabled /></label><label>Đến ngày<input id="emktStatsEnd" type="date" disabled /></label><button id="emktStatsApply" type="button">Lọc</button></div>
+      <div id="emktStats">Đang tải...</div>
+    </section>
+    </div>
+
+    <div id="emktListModal" class="modal" hidden>
+      <div class="modal-content list-modal-content">
+        <button id="closeEmktListModal" class="modal-close" type="button">×</button>
+        <h2>New list</h2>
+        <form id="emktListForm">
+          <input name="name" placeholder="Tên list" required />
+          <label class="blacklist-check"><input name="blacklist" type="checkbox" /> Blacklist</label>
+          <input type="hidden" name="country_filter" id="emktNewListCountry" />
+          <div><strong>Quốc gia</strong><div id="emktNewListCountryOptions" class="multi-options"></div></div>
+          <input type="hidden" name="industry_filter" id="emktNewListIndustry" />
+          <div><strong>Ngành</strong><div id="emktNewListIndustryOptions" class="multi-options"></div></div>
+          <input name="manual_emails" placeholder="Email tự thêm (ngăn cách bằng dấu phẩy hoặc xuống dòng)" />
+          <span id="emktListPreview">Khách hàng có email hợp lệ: 0</span>
+          <div class="actions"><button type="submit">Lưu list</button><span id="emktListModalStatus"></span></div>
+        </form>
+      </div>
+    </div>
+
+    <div id="emktAccountModal" class="modal" hidden>
+      <div class="modal-content">
+        <button id="closeEmktAccountModal" class="modal-close" type="button">×</button>
+        <h2>Thêm tài khoản SMTP AWS SES</h2>
+        <form id="emktAccountForm">
+          <div class="grid">
+            <input name="name" placeholder="Tên tài khoản" required />
+            <input name="smtp_host" value="email-smtp.us-east-1.amazonaws.com" placeholder="SMTP host" required />
+            <input name="smtp_port" type="number" value="465" min="1" max="65535" placeholder="SMTP port" required />
+            <select name="smtp_security"><option value="ssl">SSL/TLS</option><option value="starttls">STARTTLS</option><option value="none">Không mã hóa</option></select>
+            <input name="smtp_username" placeholder="SMTP username" required />
+            <input name="smtp_password" type="password" placeholder="SMTP password" required />
+            <input name="from_email" type="email" placeholder="Email gửi đã verify trên SES" required />
+            <input name="from_name" placeholder="Tên người gửi" />
+            <input name="configuration_set" placeholder="SES Configuration Set (tùy chọn)" />
+          </div>
+          <hr />
+          <h3>Gửi email thử</h3>
+          <input name="test_to_email" type="email" placeholder="Email nhận thử" />
+          <div class="actions"><button type="submit">Lưu tài khoản SMTP</button><button id="testEmktAccountBtn" class="emkt-test-button" type="button">Test</button><span id="emktAccountModalStatus"></span></div>
+        </form>
+      </div>
+    </div>
+
+    <div id="emktPreviewModal" class="modal" hidden>
+      <div class="modal-content emkt-preview-modal-content">
+        <button id="closeEmktPreviewModal" class="modal-close" type="button">×</button>
+        <h2>Xem trước email</h2>
+        <div id="emktPreviewModalBody" class="emkt-preview"></div>
+      </div>
+    </div>
+
+    <div id="emktHistoryModal" class="modal" hidden>
+      <div class="modal-content emkt-history-modal-content">
+        <button id="closeEmktHistoryModal" class="modal-close" type="button">×</button>
+        <h2>Lịch sử gửi campaign</h2>
+        <div id="emktHistoryBody">Đang tải...</div>
+      </div>
+    </div>
+
+    <div id="dataTab" class="tab-content" hidden>
+    <section class="panel">
+      <h2>Tìm kiếm dữ liệu</h2>
+      <div class="grid">
+        <input id="searchQ" placeholder="Từ khóa" />
+        <input id="searchIndustry" placeholder="Ngành" />
+        <button id="searchBtn">Tìm</button>
+        <a class="btn" href="/api/export/xlsx">Export Excel</a>
+      </div>
+      <div class="actions">
+        <button id="enrichDataBtn">Hoàn thiện data</button>
+        <button id="stopEnrichDataBtn" class="danger-button" type="button" disabled>Dừng</button>
+        <span id="enrichDataStatus"></span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Bảng dữ liệu</h2>
+      <div class="grid table-toolbar">
+        <label for="displayLimit">Số dòng hiển thị</label>
+        <select id="displayLimit">
+          <option value="25000">All (tất cả)</option>
+          <option value="50">50</option>
+          <option value="100" selected>100</option>
+          <option value="500">500</option>
+          <option value="1000">1.000</option>
+          <option value="5000">5.000</option>
+        </select>
+        <select id="tableCountryFilter"></select>
+        <select id="tableIndustryFilter"></select>
+        <button id="filterBtn">Filter</button>
+        <span id="tableCount">Đang hiển thị 0 dòng</span>
+        <span id="tableTotal">Tổng dữ liệu: 0</span>
+      </div>
+      <div class="table-wrap">
+        <table id="companyTable">
+          <thead>
+            <tr>
+              <th>STT</th><th>Tên cty</th><th>Quốc gia</th><th>Địa chỉ</th><th>Khu vực</th><th>Bang/Tỉnh</th><th>Website</th><th>Contact</th><th>Email</th><th>Email 2</th><th>SĐT</th><th>Mô tả</th><th>FB</th><th>FB phụ</th><th>Youtube</th><th>X</th><th>LinkedIn</th><th>Truth</th><th>Industry</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+    </div>
+
+    <div id="sourceTab" class="tab-content" hidden>
+    <section class="panel">
+      <h2>Dữ liệu quốc gia</h2>
+      <div class="country-source-actions">
+        <button id="startCountryCrawlBtn" type="button">Tìm doanh nghiệp</button>
+        <button id="stopCountryCrawlBtn" class="danger-button" type="button" disabled>Dừng</button>
+        <span id="countryCrawlProgress"></span>
+      </div>
+      <p id="countrySourceStatus">Đang tải dữ liệu...</p>
+        <div class="table-wrap source-table-wrap">
+        <table id="countrySourceTable"><thead></thead><tbody></tbody></table>
+      </div>
+      </section>
+    </div>
+
+    <div id="keywordModal" class="modal" hidden>
+      <div class="modal-content">
+        <button id="closeKeywordModal" class="modal-close" type="button">×</button>
+        <h2 id="keywordModalTitle">Từ khóa</h2>
+        <div id="keywordRows"></div>
+        <button id="addKeywordBtn" type="button">+ Thêm từ khóa</button>
+      </div>
+    </div>
+  </main>
+
+<script src="/static/app.js?v=contact-industry-counts-1"></script>
+</body>
+</html>
