@@ -4,6 +4,7 @@ import asyncio
 import uuid
 from typing import Any
 
+from craw_data.craw_company_contacts import email_list, enrich_isolated
 from app.contact_forms import inspect_url
 from app.database import SessionLocal
 from app.models.company import Company
@@ -27,35 +28,58 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
     try:
         pending = db.query(Company).filter(
             Company.website != "",
-            (Company.contact == "") | (Company.contact.is_(None)) |
-            (Company.industry == "") | (Company.industry.is_(None)) |
-            (Company.industry == "Khác"),
+            ((Company.email == "") | (Company.email.is_(None)) |
+             (Company.contact == "") | (Company.contact.is_(None))),
         ).all()
-        job.update(total=len(pending), status="running")
+        job.update(total=len(pending), status="running", found=0, latest="")
         print(f"[db-contact] job={job_id} pending={len(pending)}", flush=True)
+
         for offset in range(0, len(pending), batch_size):
-            batch = pending[offset : offset + batch_size]
+            batch = pending[offset:offset + batch_size]
             sem = asyncio.Semaphore(20)
 
             async def process(company: Company):
                 async with sem:
                     try:
-                        result = await asyncio.wait_for(inspect_url(company.website), timeout=30)
-                        return company, _classify(result), main_industry(f"{company.name} {company.address} {result.get('page_text', '')}")
+                        contact_result, email_result = await asyncio.gather(
+                            asyncio.wait_for(inspect_url(company.website), timeout=30),
+                            asyncio.to_thread(enrich_isolated, company.website, 15, 0.1),
+                        )
+                        status = _classify(contact_result)
+                        industry = main_industry(
+                            f"{company.name} {company.address} {contact_result.get('page_text', '')}"
+                        )
+                        return company, status, industry, email_result
                     except Exception as exc:
                         print(f"[db-contact] id={company.id} error={exc}", flush=True)
-                        return company, "Lỗi", ""
+                        return company, "Lỗi", "", {"emails": ""}
 
             results = await asyncio.gather(*(process(company) for company in batch))
-            for company, status, industry in results:
+            for company, status, industry, email_result in results:
                 if not (company.contact or "").strip():
                     company.contact = status
                 if industry and industry != "Khác" and (not company.industry or company.industry == "Khác"):
                     company.industry = industry
+
+                emails = email_list(company.email or "", company.email_2 or "", email_result.get("emails", ""))
+                if not (company.email or "").strip():
+                    company.email = emails[0] if emails else "chưa có"
+                    if emails:
+                        job["found"] = job.get("found", 0) + 1
+                if len(emails) > 1 and not (company.email_2 or "").strip():
+                    company.email_2 = emails[1]
+                    job["found"] = job.get("found", 0) + 1
+                job["latest"] = company.name
+
             db.commit()
             job["processed"] += len(results)
             job["last_batch"] = {"count": len(results)}
-            print(f"[db-contact] job={job_id} processed={job['processed']}/{job['total']}", flush=True)
+            print(
+                f"[db-contact] job={job_id} processed={job['processed']}/{job['total']} "
+                f"found={job['found']}",
+                flush=True,
+            )
+
         if job.get("status") != "stopped":
             job["status"] = "done"
     except asyncio.CancelledError:
@@ -72,7 +96,16 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
 
 def create_job(batch_size: int = 100) -> str:
     job_id = uuid.uuid4().hex
-    _jobs[job_id] = {"job_id": job_id, "status": "queued", "total": 0, "processed": 0, "last_batch": None, "error": None}
+    _jobs[job_id] = {
+        "job_id": job_id,
+        "status": "queued",
+        "total": 0,
+        "processed": 0,
+        "found": 0,
+        "latest": "",
+        "last_batch": None,
+        "error": None,
+    }
     _tasks[job_id] = asyncio.create_task(run_db_job(job_id, batch_size))
     return job_id
 

@@ -263,20 +263,22 @@ def process_db(args):
     finally:
         connection.close()
 
-ap=argparse.ArgumentParser(); sub=ap.add_subparsers(dest="mode")
-c=sub.add_parser("csv"); c.add_argument("--input",required=True); c.add_argument("--output",required=True)
-s=sub.add_parser("sheet"); s.add_argument("--credentials",required=True); s.add_argument("--spreadsheet-id",required=True); s.add_argument("--sheet",default="company")
-d=sub.add_parser("db"); d.add_argument("--database",required=True); d.add_argument("--progress")
-s=sub.add_parser("single"); s.add_argument("url")
-for p in (c,s,d): p.add_argument("--workers",type=int,default=8); p.add_argument("--timeout",type=int,default=15); p.add_argument("--delay",type=float,default=.25)
-args=ap.parse_args()
-if not args.mode: ap.error("choose csv or sheet mode")
-if args.mode == "single": print(json.dumps(enrich(args.url, args.timeout, args.delay), ensure_ascii=False))
-elif args.mode == "csv": process_csv(args)
-elif args.mode == "sheet": process_sheet(args)
-else:
-    while process_db(args):
-        pass
+if __name__ == "__main__":
+    ap=argparse.ArgumentParser(); sub=ap.add_subparsers(dest="mode")
+    c=sub.add_parser("csv"); c.add_argument("--input",required=True); c.add_argument("--output",required=True)
+    s=sub.add_parser("sheet"); s.add_argument("--credentials",required=True); s.add_argument("--spreadsheet-id",required=True); s.add_argument("--sheet",default="company")
+    d=sub.add_parser("db"); d.add_argument("--database",required=True); d.add_argument("--progress")
+    s=sub.add_parser("single"); s.add_argument("url")
+    for p in (c,s,d): p.add_argument("--workers",type=int,default=8); p.add_argument("--timeout",type=int,default=15); p.add_argument("--delay",type=float,default=.25)
+    args=ap.parse_args()
+    if not args.mode: ap.error("choose csv or sheet mode")
+    if args.mode == "single": print(json.dumps(enrich(args.url, args.timeout, args.delay), ensure_ascii=False))
+    elif args.mode == "csv": process_csv(args)
+    elif args.mode == "sheet": process_sheet(args)
+    else:
+        while process_db(args):
+            pass
+
 
 
 
