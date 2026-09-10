@@ -10,14 +10,13 @@ set "PENDING_FILE=%OUT_ROOT%\pending_queries.txt"
 set "BUILD_PENDING=%BASE%build_pending_queries.py"
 set "MARK_COMPLETED=%BASE%mark_query_completed.py"
 set "IMPORT=%BASE%import_maps_to_db.py"
-set "DB=%BASE%..\companies.db"
+set "DB=SUPABASE"
 set "PROGRESS=%OUT_ROOT%\crawl_progress.txt"
 set "CLEAN_SUCCESS=1"
 if not exist "%SCRAPER%" echo Khong tim thay scraper & pause & exit /b 1
 if not exist "%BUILD_PENDING%" echo Khong tim thay bo tao danh sach query & pause & exit /b 1
 if not exist "%MARK_COMPLETED%" echo Khong tim thay bo danh dau query & pause & exit /b 1
 if not exist "%IMPORT%" echo Khong tim thay bo nhap SQLite & pause & exit /b 1
-if not exist "%DB%" echo Khong tim thay companies.db - hay chay app truoc & pause & exit /b 1
 if not exist "%COMPLETED%" type nul > "%COMPLETED%"
 if not exist "%OUT_ROOT%" mkdir "%OUT_ROOT%"
 
@@ -53,7 +52,7 @@ for /f "usebackq delims=" %%Q in ("%PENDING_FILE%") do call :RUN_ONE "%%Q"
 echo.
 echo Hoan tat: thanh cong !OK!, loi !FAILED!, bo qua !SKIPPED!.
 echo Chi tiet: !STATUS_FILE!
-echo Du lieu doanh nghiep da duoc ghi truc tiep vao companies.db.
+echo Du lieu doanh nghiep da duoc ghi truc tiep vao Supabase.
 exit /b 0
 
 :RUN_ONE
@@ -99,3 +98,6 @@ if "!EXIT_CODE!"=="0" (
   echo     FAILED - ma loi !EXIT_CODE!, xem !ONE_LOG!
 )
 exit /b
+
+
+

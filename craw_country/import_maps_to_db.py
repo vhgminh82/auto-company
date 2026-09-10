@@ -5,7 +5,10 @@ import argparse
 import csv
 import json
 import re
-import sqlite3
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.legacy_db import connect_supabase
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -52,10 +55,8 @@ def candidates(csv_file: Path):
 
 
 def import_file(csv_file: Path, database: Path, query: str) -> dict[str, int]:
-    if not database.is_file():
-        raise FileNotFoundError(f"Không tìm thấy database: {database}")
-    connection = sqlite3.connect(database)
-    connection.row_factory = sqlite3.Row
+    connection = connect_supabase(database)
+    connection.row_factory = dict
     inserted = updated = skipped = 0
     try:
         by_website: dict[str, int] = {}
@@ -119,3 +120,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+

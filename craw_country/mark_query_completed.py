@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import argparse
 import re
-import sqlite3
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.legacy_db import connect_supabase
 
 
 def normalize(value: str) -> str:
@@ -11,7 +14,7 @@ def normalize(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", value).strip()
 
 
-def location(row: sqlite3.Row) -> str:
+def location(row: dict) -> str:
     raw_city = (row["city"] or "").strip().casefold()
     city, state = normalize(row["city"] or ""), normalize(row["state"] or "")
     raw_country = (row["country"] or "").strip().casefold()
@@ -27,8 +30,8 @@ parser.add_argument("--query", required=True)
 args = parser.parse_args()
 
 target = normalize(args.query)
-connection = sqlite3.connect(args.database)
-connection.row_factory = sqlite3.Row
+connection = connect_supabase(args.database)
+connection.row_factory = dict
 marked = 0
 try:
     keywords = connection.execute(
@@ -46,3 +49,6 @@ try:
 finally:
     connection.close()
 print(marked)
+
+
+

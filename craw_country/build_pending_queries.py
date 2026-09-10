@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import argparse
 import re
-import sqlite3
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.legacy_db import connect_supabase
 from pathlib import Path
 
 
@@ -16,7 +19,7 @@ def normalize(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", value).strip()
 
 
-def location(row: sqlite3.Row) -> str:
+def location(row: dict) -> str:
     raw_city = (row["city"] or "").strip().casefold()
     city = normalize(row["city"] or "")
     state = normalize(row["state"] or "")
@@ -37,14 +40,14 @@ args = parser.parse_args()
 
 completed_path = Path(args.completed)
 completed = {normalize(query) for query in lines(completed_path)} if completed_path.is_file() else set()
-connection = sqlite3.connect(args.database)
-connection.row_factory = sqlite3.Row
+connection = connect_supabase(args.database)
+connection.row_factory = dict
 try:
     keyword_rows = connection.execute(
         "SELECT position, group_position, keyword, active FROM country_keywords "
         "WHERE trim(keyword) != '' ORDER BY group_position, active DESC, position"
     ).fetchall()
-    active_by_group: dict[int, sqlite3.Row] = {}
+    active_by_group: dict[int, dict] = {}
     for keyword in keyword_rows:
         group = int(keyword["group_position"])
         if group not in active_by_group or int(keyword["active"] or 0) == 1:
@@ -75,3 +78,6 @@ finally:
 
 Path(args.output).write_text("\n".join(pending) + ("\n" if pending else ""), encoding="utf-8")
 print(len(pending))
+
+
+

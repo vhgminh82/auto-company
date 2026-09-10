@@ -1,12 +1,30 @@
-﻿from sqlalchemy import create_engine
+import os
+from pathlib import Path
+
+from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-DATABASE_URL = "sqlite:///./companies.db"
+def _load_dotenv() -> None:
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if not env_path.exists():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip(chr(34)).strip(chr(39)))
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
-)
+_load_dotenv()
+DATABASE_URL = os.getenv("SUPABASE_DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("SUPABASE_DATABASE_URL chưa được cấu hình; app chỉ hỗ trợ Supabase.")
+IS_SQLITE = DATABASE_URL.startswith("sqlite")
+
+engine_kwargs = {"pool_pre_ping": True, "pool_recycle": 1800}
+if IS_SQLITE:
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -24,9 +42,6 @@ def ensure_schema():
         for name, definition in additions.items():
             if name not in existing:
                 connection.execute(text(f"ALTER TABLE companies ADD COLUMN {name} {definition}"))
-        if "region" in existing:
-            connection.execute(text("DROP INDEX IF EXISTS ix_companies_region"))
-            connection.execute(text("ALTER TABLE companies DROP COLUMN region"))
 
     keyword_columns = {column["name"] for column in inspect(engine).get_columns("country_keywords")}
     with engine.begin() as connection:
@@ -93,3 +108,8 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+
+
+

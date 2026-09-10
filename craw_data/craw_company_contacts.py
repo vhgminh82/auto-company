@@ -3,7 +3,10 @@
 CSV mode is the safe default. Sheet mode requires a Google service-account JSON
 with access to the spreadsheet and the gspread package.
 """
-import argparse, csv, json, re, sqlite3, subprocess, sys, time
+import argparse, csv, json, re, subprocess, sys, time
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.legacy_db import connect_supabase
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
@@ -204,12 +207,9 @@ def process_sheet(args):
 def process_db(args):
     """Enrich SQLite company records directly; existing non-empty values are kept."""
     # Autocommit prevents a large UI read from blocking the crawler at batch commit.
-    connection = sqlite3.connect(args.database, timeout=60, isolation_level=None)
-    connection.row_factory = sqlite3.Row
+    connection = connect_supabase(args.database)
+    connection.row_factory = dict
     try:
-        connection.execute("PRAGMA busy_timeout = 60000")
-        connection.execute("PRAGMA journal_mode = WAL")
-        connection.execute("PRAGMA synchronous = NORMAL")
         rows = connection.execute(
             """SELECT id, name, website, email, email_2, facebook, linkedin
                FROM companies
@@ -277,3 +277,6 @@ elif args.mode == "sheet": process_sheet(args)
 else:
     while process_db(args):
         pass
+
+
+
