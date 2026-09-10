@@ -1,4 +1,4 @@
-﻿const REGION_BY_COUNTRY = {
+const REGION_BY_COUNTRY = {
   'United States': ['California', 'Texas', 'Florida', 'New York', 'Illinois', 'Washington'],
   Vietnam: ['Ho Chi Minh City', 'Ha Noi', 'Da Nang', 'Binh Duong', 'Dong Nai', 'Hai Phong'],
   Canada: ['Ontario', 'Quebec', 'British Columbia', 'Alberta'],
@@ -1025,3 +1025,32 @@ loadContactCampaign();
 loadCountrySource();
 refreshCountryCrawlStatus();
 refreshEnrichDataStatus();
+
+const githubUpdateBtn = document.getElementById('githubUpdateBtn');
+if (githubUpdateBtn) {
+  githubUpdateBtn.addEventListener('click', async () => {
+    const status = document.getElementById('githubUpdateStatus');
+    githubUpdateBtn.disabled = true;
+    status.textContent = 'Đang kiểm tra GitHub...';
+    try {
+      const check = await (await fetch('/api/system/update/check')).json();
+      if (!check.ok) throw new Error(check.message || 'Không kiểm tra được GitHub');
+      if (!check.updated) {
+        status.textContent = 'Đã là bản mới nhất (' + check.local + ').';
+        return;
+      }
+      if (!confirm('Có phiên bản mới trên GitHub (' + check.remote + '). Cập nhật ngay?')) {
+        status.textContent = 'Đã hủy cập nhật.';
+        return;
+      }
+      status.textContent = 'Đang cập nhật...';
+      const result = await (await fetch('/api/system/update', {method: 'POST'})).json();
+      if (!result.ok) throw new Error(result.message || 'Cập nhật thất bại');
+      status.textContent = result.message || 'Đã cập nhật.';
+    } catch (error) {
+      status.textContent = 'Lỗi: ' + error.message;
+    } finally {
+      githubUpdateBtn.disabled = false;
+    }
+  });
+}

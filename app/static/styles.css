@@ -127,3 +127,6 @@ th { position: sticky; top: 0; background: #eaf2fb; }
 #contactScenarioForm small { color: #667789; font-weight: 400; }
 @media (max-width: 600px) { .scenario-fields-grid { grid-template-columns: 1fr; } }
 .confirm input { display: inline; width: auto; margin-right: 6px; }
+.app-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.app-title-row h1 { margin: 0; }
+#githubUpdateStatus { color: #1d5f3a; font-size: 14px; }
