@@ -130,3 +130,5 @@ th { position: sticky; top: 0; background: #eaf2fb; }
 .app-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .app-title-row h1 { margin: 0; }
 #githubUpdateStatus { color: #1d5f3a; font-size: 14px; }
+.github-update-button { margin-left: auto; }
+#githubUpdateStatus { white-space: nowrap; }
