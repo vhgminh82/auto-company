@@ -148,6 +148,7 @@ th { position: sticky; top: 0; background: #eaf2fb; }
 .auth-bar form { margin: 0; }
 .settings-button { padding: 8px 10px; font-size: 18px; }
 .settings-button[hidden] { display: none; }
+button[hidden] { display: none; }
 
 .run-log { margin-top: 12px; max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-word; background: #f5f8fb; border: 1px solid #dbe7f4; border-radius: 8px; padding: 10px; font: 12px/1.5 Consolas, monospace; color: #243447; }
 

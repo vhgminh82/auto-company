@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 import psutil
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 
 router = APIRouter(prefix="/api/country-crawl", tags=["country-crawl"])
@@ -49,7 +49,9 @@ def _progress() -> dict:
 
 
 @router.post("/start")
-def start_crawl():
+def start_crawl(request: Request):
+    if not request.session.get("user", {}).get("is_admin"):
+        raise HTTPException(403, "Chỉ admin được tìm doanh nghiệp.")
     global _process
     if os.name == "nt":
         command = ["cmd.exe", "/c", str(BATCH_FILE)]
@@ -74,7 +76,9 @@ def start_crawl():
 
 
 @router.post("/stop")
-def stop_crawl():
+def stop_crawl(request: Request):
+    if not request.session.get("user", {}).get("is_admin"):
+        raise HTTPException(403, "Chỉ admin được dừng tìm doanh nghiệp.")
     global _process
     current = _progress()
     pid = _process.pid if _process and _process.poll() is None else _saved_pid()

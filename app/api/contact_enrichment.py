@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.database import SessionLocal
 from app.db_contact_worker import create_job, get_job, stop_job
@@ -38,7 +38,9 @@ def _progress() -> dict:
 
 
 @router.post("/start")
-async def start_enrichment():
+async def start_enrichment(request: Request):
+    if not request.session.get("user", {}).get("is_admin"):
+        raise HTTPException(403, "Chỉ admin được hoàn thiện data.")
     global _job_id
     if _job_id:
         existing = get_job(_job_id)
@@ -58,7 +60,9 @@ async def enrichment_status():
 
 
 @router.post("/stop")
-async def stop_enrichment():
+async def stop_enrichment(request: Request):
+    if not request.session.get("user", {}).get("is_admin"):
+        raise HTTPException(403, "Chỉ admin được dừng hoàn thiện data.")
     if _job_id:
         stop_job(_job_id)
     return {"stopped": True, **_progress()}

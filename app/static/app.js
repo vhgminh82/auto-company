@@ -1077,7 +1077,13 @@ document.querySelector('#countrySourceTable thead').addEventListener('click', (e
 async function initAuthAndSettings() {
   const user = await (await fetch('/api/auth/me')).json();
   document.getElementById('currentUser').textContent = user.name ? `${user.name} (${user.email})` : user.email;
-  if (!user.is_admin) return;
+  if (!user.is_admin) {
+    document.getElementById('enrichDataBtn').hidden = true;
+    document.getElementById('stopEnrichDataBtn').hidden = true;
+    document.getElementById('startCountryCrawlBtn').hidden = true;
+    document.getElementById('stopCountryCrawlBtn').hidden = true;
+    return;
+  }
   const settingsBtn = document.getElementById('settingsBtn');
   document.querySelector('.auth-bar')?.prepend(settingsBtn);
   settingsBtn.hidden = false;
