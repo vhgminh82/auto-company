@@ -45,9 +45,16 @@ def decrypt_secret(value: str) -> str:
     return _fernet().decrypt(value.encode("ascii")).decode("utf-8") if value else ""
 
 
-def _ses_client(account: SesAccount):
+def _aws_credentials(account: SesAccount):
     access_key = decrypt_secret(account.access_key_id)
     secret_key = decrypt_secret(account.secret_access_key)
+    if not access_key or not secret_key:
+        return None, None
+    return access_key, secret_key
+
+
+def _ses_client(account: SesAccount):
+    access_key, secret_key = _aws_credentials(account)
     if not access_key or not secret_key:
         return None
     return boto3.client("ses", region_name=(account.region or "us-east-1").strip(),
@@ -174,7 +181,9 @@ def _smtp_connection(account: SesAccount):
 def test_account(account: SesAccount) -> dict:
     client = _ses_client(account)
     if client:
-        identity = client._session.client("sts", region_name=(account.region or "us-east-1").strip()).get_caller_identity()
+        access_key, secret_key = _aws_credentials(account)
+        identity = boto3.client("sts", region_name=(account.region or "us-east-1").strip(),
+                                aws_access_key_id=access_key, aws_secret_access_key=secret_key).get_caller_identity()
         return {"ses_api_ok": True, "region": account.region, "iam_user": identity.get("Arn", "").rsplit("/", 1)[-1]}
     connection = _smtp_connection(account)
     try:
