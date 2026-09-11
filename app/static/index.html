@@ -9,6 +9,7 @@
 <body>
   <main class="container">
     <h1>Company Crawl Platform</h1>
+    <div class="auth-tools"><button id="settingsBtn" class="settings-button" type="button" hidden aria-label="Settings">⚙️</button></div>
     <div class="auth-bar"><span id="currentUser"></span><form method="post" action="/auth/logout"><button type="submit">Đăng xuất</button></form></div>
 
     <nav class="tabs" aria-label="Các tính năng">
@@ -16,7 +17,7 @@
       <button class="tab-button" data-tab="emktTab">Gửi eMKT</button>
       <button class="tab-button" data-tab="dataTab">Bảng dữ liệu</button>
       <button class="tab-button" data-tab="sourceTab">Nguồn dữ liệu</button>
-      <button id="githubUpdateBtn" class="github-update-button" type="button">Update</button><span id="githubUpdateStatus"></span>
+      <span id="githubUpdateStatus"></span>
     </nav>
 
     <div id="contactTab" class="tab-content">
@@ -48,6 +49,7 @@
     <div id="contactListModal" class="modal" hidden><div class="modal-content list-modal-content"><button id="closeContactListModal" class="modal-close" type="button">×</button><h2>New list contact</h2><form id="contactListForm"><input name="name" placeholder="Tên list" required /><input type="hidden" name="country_filter" id="contactNewListCountry" /><div><strong>Quốc gia</strong><div id="contactNewListCountryOptions" class="multi-options"></div></div><input type="hidden" name="industry_filter" id="contactNewListIndustry" /><div><strong>Ngành</strong><div id="contactNewListIndustryOptions" class="multi-options"></div></div><p id="contactNewListCount" class="list-selection-count">Khách hàng: 0</p><div class="actions"><button type="submit">Lưu list</button><span id="contactListModalStatus"></span></div></form></div></div>
     </div>
 
+    <div id="settingsModal" class="modal" hidden><div class="modal-content"><button id="closeSettingsModal" class="modal-close" type="button">×</button><h2>Cài đặt hệ thống</h2><section class="panel"><h3>Cập nhật ứng dụng</h3><button id="githubUpdateBtn" type="button">Update</button> <span id="settingsUpdateStatus"></span></section><section class="panel"><h3>Duyệt tài khoản đăng nhập</h3><p>Chỉ admin mới nhìn thấy và xử lý danh sách này.</p><div id="pendingUsers">Đang tải...</div></section></div></div>
     <div id="emktTab" class="tab-content" hidden>
     <div class="emkt-subtabs"><button class="emkt-subtab" data-emkt-tab="lists">List</button><button class="emkt-subtab active" data-emkt-tab="campaign">Campaign</button><button class="emkt-subtab" data-emkt-tab="stats">Thống kê</button><button class="emkt-subtab" data-emkt-tab="accounts">Tài khoản</button></div>
     <section id="emktAccountsPanel" class="panel emkt-subpanel" data-emkt-panel="accounts" hidden>

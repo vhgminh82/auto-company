@@ -1073,9 +1073,33 @@ document.querySelector('#countrySourceTable thead').addEventListener('click', (e
   if (button) openKeywordModal(Number(button.dataset.keywordPosition));
 });
 
+async function initAuthAndSettings() {
+  const user = await (await fetch('/api/auth/me')).json();
+  document.getElementById('currentUser').textContent = user.name ? `${user.name} (${user.email})` : user.email;
+  if (!user.is_admin) return;
+  const settingsBtn = document.getElementById('settingsBtn');
+  document.querySelector('.auth-bar')?.prepend(settingsBtn);
+  settingsBtn.hidden = false;
+  settingsBtn.addEventListener('click', async () => {
+    document.getElementById('settingsModal').hidden = false;
+    const target = document.getElementById('pendingUsers');
+    const users = await (await fetch('/api/auth/users')).json();
+    target.innerHTML = users.length ? `<table class="campaign-table"><thead><tr><th>Email</th><th>Tên</th><th>Trạng thái</th><th></th></tr></thead><tbody>${users.map(x => `<tr><td>${emktEscape(x.email)}</td><td>${emktEscape(x.name || '')}</td><td>${x.status}</td><td>${x.status === 'pending' ? `<button type="button" data-approve-user="${x.id}">Duyệt</button><button type="button" class="danger-button" data-reject-user="${x.id}">Từ chối</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<p>Chưa có tài khoản.</p>';
+  });
+  document.getElementById('closeSettingsModal').addEventListener('click', () => { document.getElementById('settingsModal').hidden = true; });
+  document.getElementById('pendingUsers').addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-approve-user], [data-reject-user]');
+    if (!button) return;
+    const status = button.dataset.approveUser ? 'approved' : 'rejected';
+    await fetch(`/api/auth/users/${button.dataset.approveUser || button.dataset.rejectUser}?status=${status}`, {method: 'PATCH'});
+    settingsBtn.click();
+  });
+}
+
 initTableSort();
 initTabs();
 initDropdowns().then(fetchCompanies);
+initAuthAndSettings().catch(() => {});
 loadEmkt();
 loadContactCampaign();
 loadCountrySource();
@@ -1085,7 +1109,7 @@ refreshEnrichDataStatus();
 const githubUpdateBtn = document.getElementById('githubUpdateBtn');
 if (githubUpdateBtn) {
   githubUpdateBtn.addEventListener('click', async () => {
-    const status = document.getElementById('githubUpdateStatus');
+    const status = document.getElementById('settingsUpdateStatus');
     githubUpdateBtn.disabled = true;
     status.textContent = 'Đang kiểm tra GitHub...';
     try {

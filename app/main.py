@@ -24,9 +24,19 @@ from app.api.emkt_tracking import router as emkt_tracking_router
 from app.auth import router as auth_router
 from app.middleware import LoginRequiredMiddleware
 from app.database import Base, engine, ensure_schema
+from app.models.user import AppUser
+from app.database import SessionLocal
 
 Base.metadata.create_all(bind=engine)
 ensure_schema()
+with SessionLocal() as _db:
+    for _email in ("vhglinh@gmail.com", "icdirector@cnctech.vn"):
+        _user = _db.query(AppUser).filter(AppUser.email == _email).first()
+        if not _user:
+            _db.add(AppUser(email=_email, status="approved", is_admin=1))
+        else:
+            _user.status, _user.is_admin = "approved", 1
+    _db.commit()
 
 app = FastAPI(title="Company Crawl Platform", version="2.0.0")
 app.add_middleware(LoginRequiredMiddleware)

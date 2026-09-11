@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from io import BytesIO
 import json
@@ -85,7 +85,9 @@ def _download_update(commit: str) -> None:
 
 
 @router.get("/api/system/update/check")
-def check_update():
+def check_update(request: Request):
+    if not request.session.get("user", {}).get("is_admin"):
+        raise HTTPException(403, "Chỉ admin được phép kiểm tra cập nhật.")
     code, output = _git("remote", "get-url", "origin")
     if code or output != GITHUB_REMOTE:
         try:
@@ -103,8 +105,10 @@ def check_update():
 
 
 @router.post("/api/system/update")
-def update_from_github():
-    check = check_update()
+def update_from_github(request: Request):
+    if not request.session.get("user", {}).get("is_admin"):
+        raise HTTPException(403, "Chỉ admin được phép cập nhật hệ thống.")
+    check = check_update(request)
     if not check.get("ok"):
         return check
     if not check.get("updated"):
