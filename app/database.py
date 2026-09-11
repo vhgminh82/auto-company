@@ -1,8 +1,12 @@
 import os
+from contextvars import ContextVar
 from pathlib import Path
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker, with_loader_criteria
+from fastapi import Request
+
+current_owner: ContextVar[str] = ContextVar("current_owner", default="")
 
 def _load_dotenv() -> None:
     env_path = Path(__file__).resolve().parent.parent / ".env"
@@ -97,17 +101,48 @@ def ensure_schema():
             if name not in recipient_columns:
                 connection.execute(text(f"ALTER TABLE emkt_recipients ADD COLUMN {name} {definition}"))
 
+    for table in ("ses_accounts", "emkt_lists", "emkt_campaigns", "emkt_campaign_runs", "contact_scenarios", "contact_runs", "contact_lists"):
+        columns = {column["name"] for column in inspect(engine).get_columns(table)}
+        if "owner_email" not in columns:
+            with engine.begin() as connection:
+                connection.execute(text(f"ALTER TABLE {table} ADD COLUMN owner_email VARCHAR(320) NOT NULL DEFAULT ''"))
+
 
 class Base(DeclarativeBase):
     pass
 
 
-def get_db():
+def get_db(request: Request | None = None):
     db = SessionLocal()
+    db.info["owner_email"] = (request.session.get("user", {}).get("email", "").lower() if request else "")
     try:
         yield db
     finally:
         db.close()
+
+
+@event.listens_for(Session, "do_orm_execute")
+def _scope_user_data(execute_state):
+    if not execute_state.is_select or execute_state.execution_options.get("skip_owner_scope"):
+        return
+    owner = execute_state.session.info.get("owner_email", "")
+    if not owner:
+        return
+    from app.models.emkt import SesAccount, EmktList, EmktCampaign, EmktCampaignRun, ContactScenario, ContactRun, ContactList
+    for model in (SesAccount, EmktList, EmktCampaign, EmktCampaignRun, ContactScenario, ContactRun, ContactList):
+        execute_state.statement = execute_state.statement.options(
+            with_loader_criteria(model, lambda cls: cls.owner_email == owner, include_aliases=True)
+        )
+
+
+@event.listens_for(Session, "before_flush")
+def _stamp_owner(session, flush_context, instances):
+    owner = session.info.get("owner_email", "")
+    if not owner:
+        return
+    for item in session.new:
+        if hasattr(item, "owner_email") and not getattr(item, "owner_email", ""):
+            item.owner_email = owner
 
 
 

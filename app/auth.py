@@ -3,8 +3,16 @@ import secrets
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.models.user import AppUser
+
+ADMIN_EMAILS = {"vhglinh@gmail.com", "icdirector@cnctech.vn"}
+
+def _is_admin(request: Request) -> bool:
+    return bool(request.session.get("user", {}).get("is_admin"))
 
 router = APIRouter()
 GOOGLE_AUTHORIZE = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -26,6 +34,7 @@ def login_page(request: Request):
     if request.session.get("user"):
         return RedirectResponse("/", status_code=303)
     buttons = []
+    message = {"pending_approval": "Tài khoản đã ghi nhận và đang chờ admin duyệt.", "rejected": "Tài khoản chưa được admin cho phép.", "oauth_failed": "Đăng nhập OAuth thất bại."}.get(request.query_params.get("error", ""), "")
     for key, provider in _providers().items():
         if provider["client_id"] and provider["client_secret"]:
             buttons.append(f'<a class="login-button {key}" href="/auth/{key}/start">Đăng nhập với {provider["label"]}</a>')
@@ -64,8 +73,54 @@ async def auth_callback(provider: str, request: Request, code: str = "", state: 
         if profile_response.status_code >= 400:
             return RedirectResponse("/login?error=profile_failed", status_code=303)
     profile = profile_response.json()
-    request.session["user"] = {"provider": provider, "subject": profile.get("sub", ""), "email": profile.get("email", ""), "name": profile.get("name", "")}
+    email = (profile.get("email", "") or "").strip().lower()
+    if not email:
+        return RedirectResponse("/login?error=missing_email", status_code=303)
+    with next(get_db(request)) as db:
+        user = db.query(AppUser).filter(AppUser.email == email).first()
+        is_admin = email in ADMIN_EMAILS
+        if not user:
+            user = AppUser(email=email, name=profile.get("name", ""), provider=provider, subject=profile.get("sub", ""), status="approved" if is_admin else "pending", is_admin=1 if is_admin else 0)
+            db.add(user)
+        else:
+            user.name = profile.get("name", "") or user.name
+            user.provider, user.subject = provider, profile.get("sub", "")
+            if is_admin:
+                user.status, user.is_admin = "approved", 1
+        db.commit()
+        if user.status != "approved":
+            return RedirectResponse("/login?error=pending_approval", status_code=303)
+        admin = bool(user.is_admin)
+    request.session["user"] = {"provider": provider, "subject": profile.get("sub", ""), "email": email, "name": profile.get("name", ""), "is_admin": admin}
     return RedirectResponse("/", status_code=303)
+
+@router.get("/api/auth/me")
+def current_user(request: Request):
+    user = request.session.get("user")
+    if not user:
+        raise HTTPException(401, "Chưa đăng nhập.")
+    return user
+
+@router.get("/api/auth/users")
+def list_users(request: Request, db: Session = Depends(get_db)):
+    if not _is_admin(request):
+        raise HTTPException(403, "Chỉ admin được phép.")
+    return [{"id": x.id, "email": x.email, "name": x.name, "status": x.status, "is_admin": bool(x.is_admin), "created_at": x.created_at} for x in db.query(AppUser).order_by(AppUser.id.desc()).all()]
+
+@router.patch("/api/auth/users/{user_id}")
+def approve_user(user_id: int, request: Request, status: str, db: Session = Depends(get_db)):
+    if not _is_admin(request):
+        raise HTTPException(403, "Chỉ admin được phép.")
+    if status not in {"approved", "rejected", "pending"}:
+        raise HTTPException(400, "Trạng thái không hợp lệ.")
+    user = db.get(AppUser, user_id)
+    if not user:
+        raise HTTPException(404, "Không tìm thấy user.")
+    if user.email in ADMIN_EMAILS and status != "approved":
+        raise HTTPException(400, "Không thể khóa admin mặc định.")
+    user.status = status
+    db.commit()
+    return {"ok": True, "status": status}
 
 @router.post("/auth/logout")
 def logout(request: Request):

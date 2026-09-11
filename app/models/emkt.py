@@ -10,6 +10,7 @@ class SesAccount(Base):
     __tablename__ = "ses_accounts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_email: Mapped[str] = mapped_column(String(320), nullable=False, default="", index=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
     region: Mapped[str] = mapped_column(String(64), nullable=False, default="us-east-1")
     access_key_id: Mapped[str] = mapped_column(String(512), nullable=False, default="")
@@ -31,6 +32,7 @@ class SesAccount(Base):
 class EmktList(Base):
     __tablename__ = "emkt_lists"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_email: Mapped[str] = mapped_column(String(320), nullable=False, default="", index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     country_filter: Mapped[str] = mapped_column(String(128), nullable=False, default="")
     industry_filter: Mapped[str] = mapped_column(String(128), nullable=False, default="")
@@ -57,6 +59,7 @@ class EmktCampaign(Base):
     __tablename__ = "emkt_campaigns"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_email: Mapped[str] = mapped_column(String(320), nullable=False, default="", index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     account_id: Mapped[int] = mapped_column(ForeignKey("ses_accounts.id"), nullable=False, index=True)
     subject: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -80,6 +83,7 @@ class EmktCampaign(Base):
 class EmktCampaignRun(Base):
     __tablename__ = "emkt_campaign_runs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_email: Mapped[str] = mapped_column(String(320), nullable=False, default="", index=True)
     campaign_id: Mapped[int] = mapped_column(ForeignKey("emkt_campaigns.id"), nullable=False, index=True)
     started_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     completed_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -115,6 +119,7 @@ class EmktRecipient(Base):
 class ContactScenario(Base):
     __tablename__ = "contact_scenarios"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_email: Mapped[str] = mapped_column(String(320), nullable=False, default="", index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     fields: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -124,6 +129,7 @@ class ContactScenario(Base):
 class ContactRun(Base):
     __tablename__ = "contact_runs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_email: Mapped[str] = mapped_column(String(320), nullable=False, default="", index=True)
     scenario_id: Mapped[int] = mapped_column(ForeignKey("contact_scenarios.id"), nullable=False, index=True)
     list_ids: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     started_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -150,6 +156,7 @@ class ContactRunDetail(Base):
 class ContactList(Base):
     __tablename__ = "contact_lists"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner_email: Mapped[str] = mapped_column(String(320), nullable=False, default="", index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     country_filter: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     industry_filter: Mapped[str] = mapped_column(String(255), nullable=False, default="")
