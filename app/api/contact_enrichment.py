@@ -44,7 +44,8 @@ async def start_enrichment():
         existing = get_job(_job_id)
         if existing and existing.get("status") in {"queued", "running"}:
             return {"started": False, "status": "running", **_progress()}
-    _job_id = create_job(batch_size=100)
+    # Keep batches small so the UI receives progress quickly on large datasets.
+    _job_id = create_job(batch_size=10)
     return {"started": True, "status": "running", **_progress()}
 
 
