@@ -30,6 +30,7 @@ const TABLE_COLUMNS = [
   'short_description', 'facebook', 'facebook_alt', 'youtube', 'x', 'linkedin',
   'truth', 'country', 'industry',
 ];
+const TABLE_EDIT_FIELDS = [null, 'name', 'country', 'address', 'city', 'state', 'website', 'contact', 'email', 'email_2', 'phone', 'short_description', 'facebook', 'facebook_alt', 'youtube', 'x', 'linkedin', 'truth', 'industry'];
 let displayedCompanies = [];
 let tableRows = [];
 let sortColumn = '';
@@ -660,8 +661,14 @@ function renderVisibleRows() {
       c.name, c.country, c.address, c.city, c.state, c.website, c.contact, c.email, c.email_2, c.phone, c.short_description,
       c.facebook, c.facebook_alt, c.youtube, c.x, c.linkedin, c.truth, c.industry,
     ];
-    values.forEach((v) => {
+    values.forEach((v, cellIndex) => {
       const td = document.createElement('td');
+      td.dataset.companyId = c.id;
+      td.dataset.field = TABLE_EDIT_FIELDS[cellIndex] || '';
+      if (window.currentUser?.is_admin && td.dataset.field) {
+        td.contentEditable = 'true';
+        td.classList.add('admin-editable-cell');
+      }
       td.textContent = v || '';
       tr.appendChild(td);
     });
@@ -673,6 +680,17 @@ function renderVisibleRows() {
     tbody.appendChild(spacer);
   }
 }
+
+document.querySelector('#companyTable tbody').addEventListener('focusout', async (event) => {
+  const cell = event.target.closest('.admin-editable-cell');
+  if (!cell || !window.currentUser?.is_admin) return;
+  const row = tableRows.find(item => item.id === Number(cell.dataset.companyId));
+  const value = cell.textContent.trim();
+  if (!row || String(row[cell.dataset.field] || '') === value) return;
+  const response = await fetch(`/api/companies/${cell.dataset.companyId}`, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({field: cell.dataset.field, value})});
+  if (!response.ok) { cell.textContent = row[cell.dataset.field] || ''; window.alert('Không lưu được dữ liệu.'); return; }
+  row[cell.dataset.field] = value;
+});
 
 function initTableSort() {
   document.querySelectorAll('#companyTable thead th').forEach((th, index) => {
@@ -1076,6 +1094,7 @@ document.querySelector('#countrySourceTable thead').addEventListener('click', (e
 
 async function initAuthAndSettings() {
   const user = await (await fetch('/api/auth/me')).json();
+  window.currentUser = user;
   document.getElementById('currentUser').textContent = user.name ? `${user.name} (${user.email})` : user.email;
   if (!user.is_admin) {
     document.getElementById('enrichDataBtn').hidden = true;

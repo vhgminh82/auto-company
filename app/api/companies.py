@@ -8,6 +8,12 @@ from app.repositories.company_repo import search_companies
 from app.repositories.visited_repo import clear_visited
 from app.schemas import CompanyOut
 from app.models.company import Company
+from fastapi import HTTPException, Request
+from pydantic import BaseModel
+
+class CompanyFieldUpdate(BaseModel):
+    field: str
+    value: str = ""
 
 router = APIRouter(prefix="/api", tags=["companies"])
 
@@ -39,6 +45,20 @@ def list_industries(db: Session = Depends(get_db)):
     values = db.query(Company.industry).filter(Company.industry != "").distinct().all()
     return sorted({str(value[0]).strip() for value in values if str(value[0]).strip()}, key=str.casefold)
 
+
+@router.patch("/companies/{company_id}")
+def update_company_field(company_id: int, payload: CompanyFieldUpdate, request: Request, db: Session = Depends(get_db)):
+    if not request.session.get("user", {}).get("is_admin"):
+        raise HTTPException(403, "Chỉ admin được sửa dữ liệu.")
+    editable = {"name", "address", "city", "state", "website", "contact", "email", "email_2", "phone", "short_description", "facebook", "facebook_alt", "youtube", "x", "linkedin", "truth", "country", "industry", "source_url"}
+    if payload.field not in editable:
+        raise HTTPException(400, "Trường dữ liệu không được phép sửa.")
+    company = db.get(Company, company_id)
+    if not company:
+        raise HTTPException(404, "Không tìm thấy doanh nghiệp.")
+    setattr(company, payload.field, payload.value.strip())
+    db.commit()
+    return {"ok": True, "id": company.id, "field": payload.field, "value": getattr(company, payload.field)}
 
 @router.delete("/companies")
 def delete_companies(db: Session = Depends(get_db)):
