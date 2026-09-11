@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from cryptography.fernet import InvalidToken
 
 from app.database import get_db
 from app.emkt_service import collect_recipients, encrypt_secret, send_test_email, start_campaign, stop_campaign, test_account
@@ -78,9 +79,15 @@ class TestEmailRequest(BaseModel):
 
 def account_out(item: SesAccount) -> dict:
     from app.emkt_service import decrypt_secret
+    try:
+        smtp_username = decrypt_secret(item.smtp_username)
+    except InvalidToken:
+        # Credentials created with a previous encryption key cannot be recovered.
+        # Keep the account list usable so the admin can replace them.
+        smtp_username = ""
     return {
         "id": item.id, "name": item.name, "smtp_host": item.smtp_host, "smtp_port": item.smtp_port,
-        "smtp_security": item.smtp_security, "smtp_username": decrypt_secret(item.smtp_username),
+        "smtp_security": item.smtp_security, "smtp_username": smtp_username,
         "from_email": item.from_email, "from_name": item.from_name,
         "configuration_set": item.configuration_set,
         "enabled": bool(item.enabled), "has_credentials": bool(item.smtp_username and item.smtp_password),
