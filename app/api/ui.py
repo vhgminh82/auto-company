@@ -9,7 +9,7 @@ import sys
 import tarfile
 import tempfile
 import threading
-from urllib.request import Request, urlopen
+from urllib.request import Request as URLRequest, urlopen
 
 router = APIRouter()
 
@@ -46,7 +46,7 @@ def _git(*args: str) -> tuple[int, str]:
 
 
 def _github_head() -> str:
-    request = Request(GITHUB_API, headers={"User-Agent": "crawl-company-updater", "Accept": "application/vnd.github+json"})
+    request = URLRequest(GITHUB_API, headers={"User-Agent": "crawl-company-updater", "Accept": "application/vnd.github+json"})
     with urlopen(request, timeout=30) as response:
         return str(json.load(response)["sha"])
 
@@ -63,7 +63,7 @@ def _restart_process() -> None:
 
 
 def _download_update(commit: str) -> None:
-    request = Request(GITHUB_ARCHIVE, headers={"User-Agent": "crawl-company-updater"})
+    request = URLRequest(GITHUB_ARCHIVE, headers={"User-Agent": "crawl-company-updater"})
     with urlopen(request, timeout=120) as response:
         archive = response.read()
     with tempfile.TemporaryDirectory(prefix="crawl-company-update-") as temp_dir:
