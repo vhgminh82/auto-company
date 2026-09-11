@@ -131,7 +131,14 @@ def _scope_user_data(execute_state):
     from app.models.emkt import SesAccount, EmktList, EmktCampaign, EmktCampaignRun, ContactScenario, ContactRun, ContactList
     for model in (SesAccount, EmktList, EmktCampaign, EmktCampaignRun, ContactScenario, ContactRun, ContactList):
         execute_state.statement = execute_state.statement.options(
-            with_loader_criteria(model, lambda cls: cls.owner_email == owner, include_aliases=True)
+            with_loader_criteria(
+                model,
+                lambda cls: (cls.owner_email == owner)
+                | cls.owner_email.like(owner + ",%")
+                | cls.owner_email.like("%," + owner + ",%")
+                | cls.owner_email.like("%," + owner),
+                include_aliases=True,
+            )
         )
 
 
