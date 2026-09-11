@@ -174,8 +174,8 @@ def _smtp_connection(account: SesAccount):
 def test_account(account: SesAccount) -> dict:
     client = _ses_client(account)
     if client:
-        client.get_send_quota()
-        return {"ses_api_ok": True, "region": account.region}
+        identity = client._session.client("sts", region_name=(account.region or "us-east-1").strip()).get_caller_identity()
+        return {"ses_api_ok": True, "region": account.region, "iam_user": identity.get("Arn", "").rsplit("/", 1)[-1]}
     connection = _smtp_connection(account)
     try:
         return {"smtp_ok": True, "host": account.smtp_host, "port": account.smtp_port, "security": account.smtp_security}
