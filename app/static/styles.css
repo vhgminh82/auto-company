@@ -99,6 +99,12 @@ th { position: sticky; top: 0; background: #eaf2fb; }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: grid; place-items: center; z-index: 10; }
 .modal[hidden] { display: none; }
 .modal-content { position: relative; background: #fff; width: 800px; max-width: 800px; max-height: 85vh; overflow: auto; border-radius: 14px; padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+#settingsModal .modal-content { width: min(720px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); overflow-x: hidden; overflow-y: auto; }
+#settingsModal .campaign-table { width: 100%; min-width: 0; table-layout: fixed; }
+#settingsModal .campaign-table th, #settingsModal .campaign-table td { overflow-wrap: anywhere; word-break: break-word; }
+#settingsModal .campaign-table th:nth-child(1) { width: 42%; }
+#settingsModal .campaign-table th:nth-child(2) { width: 24%; }
+#settingsModal .campaign-table th:nth-child(3) { width: 18%; }
 .modal-close { position: absolute; top: 8px; right: 10px; background: transparent; color: #1d2a3b; border: 0; font-size: 24px; }
 .modal-save { position: absolute; top: 12px; right: 48px; padding: 7px 14px; }
 .keyword-row { display: flex; gap: 8px; margin: 8px 0; }
