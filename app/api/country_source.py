@@ -45,8 +45,12 @@ def sync_completed():
 
 
 @router.get("")
-def list_source(limit: int = Query(default=1000, ge=1, le=25000), db: Session = Depends(get_db)):
-    return db.query(CountrySource).order_by(CountrySource.id).limit(limit).all()
+def list_source(limit: int = Query(default=1000, ge=1, le=25000), country: str = "", city: str = "", state: str = "", db: Session = Depends(get_db)):
+    query = db.query(CountrySource)
+    for field, value in ((CountrySource.country, country), (CountrySource.city, city), (CountrySource.state, state)):
+        if value.strip():
+            query = query.filter(field.ilike(f"%{value.strip()}%"))
+    return query.order_by(CountrySource.id).limit(limit).all()
 
 
 @router.get("/keywords")

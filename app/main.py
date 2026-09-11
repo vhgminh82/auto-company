@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 import secrets
+import hashlib
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.companies import router as companies_router
@@ -40,7 +41,8 @@ with SessionLocal() as _db:
 
 app = FastAPI(title="Company Crawl Platform", version="2.0.0")
 app.add_middleware(LoginRequiredMiddleware)
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("AUTH_SESSION_SECRET", secrets.token_urlsafe(32)), same_site="lax")
+session_secret = os.getenv("AUTH_SESSION_SECRET") or hashlib.sha256((os.getenv("SUPABASE_DATABASE_URL", "") + "::crm-auth-session").encode()).hexdigest()
+app.add_middleware(SessionMiddleware, secret_key=session_secret, same_site="lax")
 
 app.add_middleware(
     CORSMiddleware,

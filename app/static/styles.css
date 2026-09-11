@@ -119,6 +119,8 @@ th { position: sticky; top: 0; background: #eaf2fb; }
 .delete-keyword-btn { margin-left: auto; background: #b23b3b; padding: 5px 10px; font-size: 13px; }
 .keyword-select-row button { background: #b23b3b; }
 .country-source-actions { display: flex; align-items: center; gap: 14px; }
+.country-source-filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.country-source-filters input { min-width: 160px; }
 #countryCrawlProgress { font-weight: 600; color: #1f6fb2; }
 .danger-button { background: #b23b3b; }
 .confirm { font-weight: 400 !important; }

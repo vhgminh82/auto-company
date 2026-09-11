@@ -39,7 +39,7 @@ def mark_completed(craw_dir: Path, query: str) -> None:
 
 
 async def crawl_query(orchestrator: CrawlOrchestrator, query: str) -> list[dict[str, str]]:
-    return await orchestrator.run(CrawlContext(query=query, max_companies=5000))
+    return await orchestrator.run(CrawlContext(query=query, country="", region="", industry="", max_companies=5000))
 
 
 def main() -> int:

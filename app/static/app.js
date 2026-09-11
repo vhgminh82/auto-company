@@ -83,7 +83,7 @@ async function loadCountrySource() {
   const status = document.getElementById('countrySourceStatus');
   try {
     const [rows, keywords, stats] = await Promise.all([
-      (await fetch('/api/country-source?limit=25000')).json(),
+      (await fetch(`/api/country-source?limit=25000&country=${encodeURIComponent(document.getElementById('countrySourceCountryFilter')?.value || '')}&city=${encodeURIComponent(document.getElementById('countrySourceCityFilter')?.value || '')}&state=${encodeURIComponent(document.getElementById('countrySourceStateFilter')?.value || '')}`)).json(),
       (await fetch('/api/country-source/keywords')).json(),
       (await fetch('/api/country-source/stats')).json(),
     ]);
@@ -1057,6 +1057,7 @@ document.getElementById('startCountryCrawlBtn').addEventListener('click', async 
   document.getElementById('countryCrawlProgress').textContent = 'Đang chuẩn bị tìm...';
   refreshCountryCrawlStatus();
 });
+document.getElementById('countrySourceFilterBtn').addEventListener('click', loadCountrySource);
 
 document.getElementById('stopCountryCrawlBtn').addEventListener('click', async () => {
   const response = await fetch('/api/country-crawl/stop', {method: 'POST'});
