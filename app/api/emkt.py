@@ -151,6 +151,27 @@ def delete_account(account_id: int, db: Session = Depends(get_db)):
     db.delete(item); db.commit()
     return {"deleted": account_id}
 
+@router.put("/accounts/{account_id}")
+def update_account(account_id: int, request: AccountRequest, db: Session = Depends(get_db)):
+    item = db.get(SesAccount, account_id)
+    if not item:
+        raise HTTPException(404, "Không tìm thấy tài khoản SES.")
+    item.name = request.name.strip()
+    item.smtp_host = request.smtp_host.strip()
+    item.smtp_port = request.smtp_port
+    item.smtp_security = request.smtp_security
+    item.smtp_username = encrypt_secret(request.smtp_username.strip())
+    item.smtp_password = encrypt_secret(request.smtp_password)
+    item.from_email = request.from_email.strip()
+    item.from_name = request.from_name.strip()
+    item.configuration_set = request.configuration_set.strip()
+    try:
+        db.commit(); db.refresh(item)
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(400, f"Không cập nhật được tài khoản: {exc}") from exc
+    return account_out(item)
+
 
 @router.post("/accounts/{account_id}/test")
 def check_account(account_id: int, db: Session = Depends(get_db)):

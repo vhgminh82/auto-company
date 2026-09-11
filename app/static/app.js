@@ -232,12 +232,13 @@ function renderEmktListCustomers(list) {
 
 async function loadEmktAccounts() {
   const accounts = await (await fetch('/api/emkt/accounts')).json();
+  window.emktAccounts = accounts;
   const select = document.getElementById('emktAccountSelect');
   select.innerHTML = '<option value="">Chọn tài khoản SES</option>';
   accounts.forEach((account) => {
     const option = document.createElement('option'); option.value = account.id; option.textContent = `${account.name} — ${account.from_email}`; select.appendChild(option);
   });
-  document.getElementById('emktAccounts').innerHTML = accounts.length ? accounts.map((account) => `<div class="emkt-account"><strong>${emktEscape(account.name)}</strong> · ${emktEscape(account.smtp_host)}:${account.smtp_port} (${emktEscape(account.smtp_security)}) · gửi từ ${emktEscape(account.from_email)} <button type="button" data-emkt-test="${account.id}">Kiểm tra SMTP</button><button type="button" class="danger-button" data-emkt-delete="${account.id}">Xóa</button></div>`).join('') : '<p>Chưa có tài khoản SMTP.</p>';
+  document.getElementById('emktAccounts').innerHTML = accounts.length ? accounts.map((account) => `<div class="emkt-account"><strong>${emktEscape(account.name)}</strong> · ${emktEscape(account.smtp_host)}:${account.smtp_port} (${emktEscape(account.smtp_security)}) · gửi từ ${emktEscape(account.from_email)} <button type="button" data-emkt-edit="${account.id}">Sửa</button><button type="button" data-emkt-test="${account.id}">Kiểm tra SMTP</button><button type="button" class="danger-button" data-emkt-delete="${account.id}">Xóa</button></div>`).join('') : '<p>Chưa có tài khoản SMTP.</p>';
 }
 
 async function loadEmktCampaigns() {
@@ -393,7 +394,8 @@ async function saveEmktAccountFromModal() {
   const values = Object.fromEntries(new FormData(form));
   const payload = {};
   ['name', 'smtp_host', 'smtp_port', 'smtp_security', 'smtp_username', 'smtp_password', 'from_email', 'from_name', 'configuration_set'].forEach((key) => { payload[key] = values[key] || ''; });
-  const response = await fetch('/api/emkt/accounts', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+  const editId = form.dataset.editId || '';
+  const response = await fetch(editId ? `/api/emkt/accounts/${editId}` : '/api/emkt/accounts', {method: editId ? 'PUT' : 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
   const body = await response.json();
   if (!response.ok) throw new Error(body.detail || 'Không lưu được tài khoản SES.');
   form.dataset.accountId = body.id;
@@ -402,6 +404,7 @@ async function saveEmktAccountFromModal() {
 }
 
 document.getElementById('openEmktAccountBtn').addEventListener('click', () => {
+  const form = document.getElementById('emktAccountForm'); form.reset(); delete form.dataset.editId;
   document.getElementById('emktAccountModal').hidden = false;
   document.getElementById('emktAccountModalStatus').textContent = '';
 });
@@ -427,6 +430,17 @@ document.getElementById('testEmktAccountBtn').addEventListener('click', async ()
 });
 
 document.getElementById('emktAccounts').addEventListener('click', async (event) => {
+  const editId = event.target.dataset.emktEdit;
+  if (editId) {
+    const account = (window.emktAccounts || []).find(item => item.id === Number(editId));
+    if (!account) return;
+    const form = document.getElementById('emktAccountForm'); form.dataset.editId = editId;
+    form.elements.name.value = account.name; form.elements.smtp_host.value = account.smtp_host; form.elements.smtp_port.value = account.smtp_port; form.elements.smtp_security.value = account.smtp_security; form.elements.from_email.value = account.from_email; form.elements.from_name.value = account.from_name || ''; form.elements.configuration_set.value = account.configuration_set || '';
+    form.elements.smtp_username.value = ''; form.elements.smtp_password.value = '';
+    document.querySelector('#emktAccountModal h2').textContent = 'Sửa tài khoản SMTP AWS SES';
+    document.getElementById('emktAccountModal').hidden = false; document.getElementById('emktAccountModalStatus').textContent = 'Nhập lại SMTP username/password để lưu.';
+    return;
+  }
   const testId = event.target.dataset.emktTest;
   const deleteId = event.target.dataset.emktDelete;
   if (testId) {
