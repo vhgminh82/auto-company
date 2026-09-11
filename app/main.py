@@ -1,6 +1,9 @@
-﻿from fastapi import FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import os
+import secrets
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.companies import router as companies_router
 from app.api.crawl import router as crawl_router
@@ -18,12 +21,16 @@ from app.api.sheet_sync import router as sheet_sync_router
 from app.api.emkt import router as emkt_router
 from app.api.emkt_lists import router as emkt_lists_router
 from app.api.emkt_tracking import router as emkt_tracking_router
+from app.auth import router as auth_router
+from app.middleware import LoginRequiredMiddleware
 from app.database import Base, engine, ensure_schema
 
 Base.metadata.create_all(bind=engine)
 ensure_schema()
 
 app = FastAPI(title="Company Crawl Platform", version="2.0.0")
+app.add_middleware(LoginRequiredMiddleware)
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("AUTH_SESSION_SECRET", secrets.token_urlsafe(32)), same_site="lax")
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,3 +58,4 @@ app.include_router(sheet_sync_router)
 app.include_router(emkt_router)
 app.include_router(emkt_lists_router)
 app.include_router(emkt_tracking_router)
+app.include_router(auth_router)

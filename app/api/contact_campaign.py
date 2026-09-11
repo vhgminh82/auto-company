@@ -4,7 +4,7 @@ import asyncio
 import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -12,7 +12,7 @@ from sqlalchemy import or_
 from app.contact_forms import inspect_url
 from app.database import get_db, SessionLocal
 from app.models.company import Company
-from app.models.emkt import ContactList, ContactListMember, ContactRun, ContactScenario
+from app.models.emkt import ContactList, ContactListMember, ContactRun, ContactRunDetail, ContactScenario
 
 router = APIRouter(prefix="/api/contact-campaign", tags=["contact-campaign"])
 _jobs: dict[int, dict] = {}
@@ -89,13 +89,26 @@ def contact_facets(db: Session = Depends(get_db)):
     return {"countries": countries, "industries": industries}
 
 
+@router.get("/selection-count")
+def contact_selection_count(country_filter: str = Query(""), industry_filter: str = Query(""), db: Session = Depends(get_db)):
+    query = db.query(Company.id).filter(Company.contact.ilike("ok"))
+    countries = [x.strip() for x in country_filter.split(",") if x.strip()]
+    industries = [x.strip() for x in industry_filter.split(",") if x.strip()]
+    if countries:
+        query = query.filter(or_(*[Company.country.ilike(f"%{x}%") for x in countries]))
+    if industries:
+        query = query.filter(or_(*[Company.industry.ilike(f"%{x}%") for x in industries]))
+    return {"count": query.count()}
+
 @router.post("/lists")
 def create_contact_list(request: ContactListRequest, db: Session = Depends(get_db)):
     item = ContactList(name=request.name.strip(), country_filter=request.country_filter.strip(), industry_filter=request.industry_filter.strip())
     db.add(item); db.flush()
     query = db.query(Company.id).filter(Company.contact.ilike("ok"))
-    if item.country_filter: query = query.filter(Company.country.ilike(f"%{item.country_filter}%"))
-    if item.industry_filter: query = query.filter(Company.industry.ilike(f"%{item.industry_filter}%"))
+    countries = [x.strip() for x in item.country_filter.split(",") if x.strip()]
+    industries = [x.strip() for x in item.industry_filter.split(",") if x.strip()]
+    if countries: query = query.filter(or_(*[Company.country.ilike(f"%{x}%") for x in countries]))
+    if industries: query = query.filter(or_(*[Company.industry.ilike(f"%{x}%") for x in industries]))
     for (company_id,) in query.all(): db.add(ContactListMember(list_id=item.id, company_id=company_id))
     try:
         db.commit(); db.refresh(item)
@@ -158,36 +171,83 @@ async def _run_contact(run_id: int, company_ids: list[int], fields: dict[str, st
                 result = await asyncio.wait_for(inspect_url(company.website), timeout=30)
                 form = next((x for x in result.get("forms", []) if not x.get("has_captcha")), None)
                 if not form:
-                    return "captcha" if any(x.get("has_captcha") for x in result.get("forms", [])) else "failed"
+                    if any(x.get("has_captcha") for x in result.get("forms", [])):
+                        return "captcha", f"Phát hiện CAPTCHA tại {result.get('final_url', company.website)}", company_id
+                    return "failed", f"Không tìm thấy contact form hợp lệ; trang kiểm tra: {result.get('final_url', company.website)}; trang liên hệ: {', '.join(result.get('contact_pages', [])) or 'không có'}", company_id
                 values = {key: str(value).replace("{{company_name}}", company.name).replace("{{website}}", company.website) for key, value in fields.items()}
                 payload = type("Request", (), {"page_url": form["page_url"], "action": form["action"], "form_index": form["form_index"], "fields": values, "confirm": True})()
                 await submit_contact(payload)
-                return "success"
-            except Exception:
-                return "failed"
+                return "success", f"Đã gửi contact; trang form: {form['page_url']}; action: {form['action']}", company_id
+            except Exception as exc:
+                return "failed", f"Website {company.website}: {str(exc)[:260]}", company_id
+    tasks = []
     try:
-        results = await asyncio.gather(*(one(x) for x in company_ids))
-        run.processed = len(results); run.success = results.count("success"); run.captcha = results.count("captcha"); run.failed = results.count("failed")
+        tasks = [asyncio.create_task(one(company_id)) for company_id in company_ids]
+        results = []
+        for task in asyncio.as_completed(tasks):
+            result, reason, company_id = await task
+            results.append(result)
+            run.processed = len(results)
+            run.success = results.count("success")
+            run.captcha = results.count("captcha")
+            run.failed = results.count("failed")
+            company = db.get(Company, company_id)
+            job = _jobs.setdefault(run_id, {"logs": []})
+            db.add(ContactRunDetail(run_id=run_id, company_id=company_id, company_name=company.name if company else str(company_id), website=company.website if company else "", status=result, message=reason))
+            job.setdefault("logs", []).append({"time": datetime.now(timezone.utc).isoformat(), "progress": f"{run.processed}/{run.total}", "company": company.name if company else str(company_id), "website": company.website if company else "", "status": result, "message": reason})
+            db.commit()
         run.status = "completed"; run.completed_at = datetime.now(timezone.utc); db.commit()
-    except Exception:
-        run.status = "failed"; db.commit()
-    finally: db.close()
-
-
+    except asyncio.CancelledError:
+        for child in tasks:
+            child.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        run.status = "stopped"; run.completed_at = datetime.now(timezone.utc); db.commit()
+        raise
+    except Exception as exc:
+        run.status = "failed"; job = _jobs.setdefault(run_id, {"logs": []}); job.setdefault("logs", []).append({"time": datetime.now(timezone.utc).isoformat(), "status": "error", "message": str(exc)}); db.commit()
+    finally:
+        db.close()
 @router.post("/run")
 async def start_run(request: RunRequest, db: Session = Depends(get_db)):
+    if any(job.get("task") and not job["task"].done() for job in _jobs.values()):
+        raise HTTPException(409, "Đang có một lượt contact chạy. Hãy dừng hoặc chờ lượt hiện tại hoàn tất.")
     if not request.list_ids: raise HTTPException(400, "Hãy chọn ít nhất một list contact.")
     if not db.get(ContactScenario, request.scenario_id): raise HTTPException(404, "Không tìm thấy kịch bản.")
     ids = [x[0] for x in db.query(ContactListMember.company_id).join(Company, Company.id == ContactListMember.company_id).filter(ContactListMember.list_id.in_(request.list_ids), Company.contact.ilike("ok")).distinct().all()]
     run = ContactRun(scenario_id=request.scenario_id, list_ids=json.dumps(request.list_ids), total=len(ids))
     db.add(run); db.commit(); db.refresh(run)
     scenario = db.get(ContactScenario, request.scenario_id)
-    asyncio.create_task(_run_contact(run.id, ids, scenario.fields or {}))
+    task = asyncio.create_task(_run_contact(run.id, ids, scenario.fields or {}))
+    _jobs[run.id] = {"task": task, "logs": [{"time": datetime.now(timezone.utc).isoformat(), "status": "queued", "message": f"Đã xếp hàng {len(ids)} website."}]}
     return {"run_id": run.id, "status": "queued", "total": len(ids)}
+
+
+@router.post("/run/{run_id}/stop")
+async def stop_run(run_id: int, db: Session = Depends(get_db)):
+    run = db.get(ContactRun, run_id)
+    if not run: raise HTTPException(404, "Không tìm thấy lần chạy.")
+    job = _jobs.get(run_id)
+    if job and not job.get("task").done():
+        job["task"].cancel()
+    else:
+        run.status = "stopped"; run.completed_at = datetime.now(timezone.utc); db.commit()
+    return {"run_id": run_id, "status": "stopped"}
+
+
+@router.get("/run/{run_id}/details")
+def run_details(run_id: int, db: Session = Depends(get_db)):
+    if not db.get(ContactRun, run_id): raise HTTPException(404, "Không tìm thấy lần chạy.")
+    rows = db.query(ContactRunDetail).filter(ContactRunDetail.run_id == run_id).order_by(ContactRunDetail.id).all()
+    if not rows:
+        live_logs = [x for x in _jobs.get(run_id, {}).get("logs", []) if x.get("company")]
+        return [{"id": index, "company_name": x.get("company", ""), "website": x.get("website", ""), "status": x.get("status", "failed"), "message": x.get("message", ""), "created_at": x.get("time", "")} for index, x in enumerate(live_logs, 1)]
+    return [{"id": x.id, "progress": f"{index + 1}/{run.total}", "company_name": x.company_name, "website": x.website, "status": x.status, "message": x.message, "created_at": x.created_at} for index, x in enumerate(rows)]
 
 
 @router.get("/run/{run_id}")
 def run_status(run_id: int, db: Session = Depends(get_db)):
     run = db.get(ContactRun, run_id)
     if not run: raise HTTPException(404, "Không tìm thấy lần chạy.")
-    return {"status": run.status, "total": run.total, "processed": run.processed, "success": run.success, "failed": run.failed, "captcha": run.captcha}
+    job = _jobs.get(run_id, {})
+    return {"status": run.status, "total": run.total, "processed": run.processed, "success": run.success, "failed": run.failed, "captcha": run.captcha, "logs": job.get("logs", [])[-100:]}

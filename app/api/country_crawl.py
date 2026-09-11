@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import psutil
@@ -11,6 +12,7 @@ from fastapi import APIRouter, HTTPException
 router = APIRouter(prefix="/api/country-crawl", tags=["country-crawl"])
 CRAWL_DIR = Path(__file__).resolve().parents[2] / "craw_country"
 BATCH_FILE = CRAWL_DIR / "1_find_country_company.bat"
+PYTHON_RUNNER = CRAWL_DIR / "country_crawl_runner.py"
 PROGRESS_FILE = CRAWL_DIR / "results" / "crawl_progress.txt"
 PID_FILE = CRAWL_DIR / "results" / "crawl.pid"
 _process: subprocess.Popen | None = None
@@ -49,15 +51,19 @@ def _progress() -> dict:
 @router.post("/start")
 def start_crawl():
     global _process
-    if not BATCH_FILE.is_file():
-        raise HTTPException(404, "Không tìm thấy file crawl.")
+    if os.name == "nt":
+        command = ["cmd.exe", "/c", str(BATCH_FILE)]
+    else:
+        if not PYTHON_RUNNER.is_file():
+            raise HTTPException(404, "country crawl runner not found.")
+        command = [sys.executable, str(PYTHON_RUNNER), "--progress", str(PROGRESS_FILE)]
     running_pid = _process.pid if _process and _process.poll() is None else _saved_pid()
     if _pid_running(running_pid):
         return {"started": False, **_progress()}
     PROGRESS_FILE.parent.mkdir(parents=True, exist_ok=True)
     PROGRESS_FILE.unlink(missing_ok=True)
     _process = subprocess.Popen(
-        ["cmd.exe", "/c", str(BATCH_FILE)],
+        command,
         cwd=CRAWL_DIR,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.STDOUT,

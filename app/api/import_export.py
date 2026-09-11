@@ -1,12 +1,14 @@
-﻿from io import BytesIO
+from io import BytesIO
 
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
 from sqlalchemy.orm import Session
 
 from app.core.constants import COMPANY_EXPORT_COLUMNS
 from app.database import get_db
+from app.models.company import Company
 from app.repositories.company_repo import insert_many_ignore_duplicates, list_for_export
 
 router = APIRouter(prefix="/api", tags=["io"])
@@ -53,10 +55,16 @@ def export_csv(db: Session = Depends(get_db)):
 
 @router.get("/export/xlsx")
 def export_xlsx(db: Session = Depends(get_db)):
-    rows = list_for_export(db)
-    df = pd.DataFrame(rows)
+    workbook = Workbook(write_only=True)
+    sheet = workbook.create_sheet("Companies")
+    sheet.append(COMPANY_EXPORT_COLUMNS)
+    columns = [getattr(Company, name) for name in COMPANY_EXPORT_COLUMNS]
+    query = db.query(*columns).order_by(Company.id.desc()).yield_per(2000)
+    for row in query:
+        sheet.append([value if value is not None else "" for value in row])
+
     bio = BytesIO()
-    df.to_excel(bio, index=False, engine="openpyxl")
+    workbook.save(bio)
     bio.seek(0)
     return StreamingResponse(
         bio,

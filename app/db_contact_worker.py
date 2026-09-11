@@ -36,14 +36,19 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
 
         for offset in range(0, len(pending), batch_size):
             batch = pending[offset:offset + batch_size]
-            sem = asyncio.Semaphore(20)
+            # inspect_url may start a Playwright browser; avoid exhausting
+            # Chromium/process resources on the server.
+            sem = asyncio.Semaphore(4)
 
             async def process(company: Company):
                 async with sem:
                     try:
                         contact_result, email_result = await asyncio.gather(
                             asyncio.wait_for(inspect_url(company.website), timeout=30),
-                            asyncio.to_thread(enrich_isolated, company.website, 15, 0.1),
+                            asyncio.wait_for(
+                                asyncio.to_thread(enrich_isolated, company.website, 15, 0.1),
+                                timeout=30,
+                            ),
                         )
                         status = _classify(contact_result)
                         industry = main_industry(
@@ -51,7 +56,7 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
                         )
                         return company, status, industry, email_result
                     except Exception as exc:
-                        print(f"[db-contact] id={company.id} error={exc}", flush=True)
+                        print(f"[db-contact] id={company.id} error={type(exc).__name__}: {exc}", flush=True)
                         return company, "Lỗi", "", {"emails": ""}
 
             results = await asyncio.gather(*(process(company) for company in batch))

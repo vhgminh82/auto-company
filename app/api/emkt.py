@@ -310,7 +310,7 @@ def run_campaign(campaign_id: int, request: StartRequest, db: Session = Depends(
     campaign = db.get(EmktCampaign, campaign_id)
     if not campaign:
         raise HTTPException(404, "Không tìm thấy chiến dịch.")
-    if campaign.status == "sending":
+    if campaign.status in {"sending", "queued", "stopping"}:
         return {"started": False, **campaign_out(campaign, db)}
     db.query(EmktRecipient).filter(EmktRecipient.campaign_id == campaign_id).delete(synchronize_session=False)
     recipients = collect_recipients(db, campaign)

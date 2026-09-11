@@ -15,7 +15,8 @@ def _remaining() -> int:
     try:
         return db.query(Company).filter(
             Company.website != "",
-            (Company.email == "") | (Company.email.is_(None)),
+            (Company.email == "") | (Company.email.is_(None)) |
+            (Company.contact == "") | (Company.contact.is_(None)),
         ).count()
     finally:
         db.close()
@@ -51,7 +52,8 @@ async def start_enrichment():
 async def enrichment_status():
     progress = _progress()
     status = progress.get("state", "idle")
-    return {"status": "running" if status in {"queued", "running"} else status, **progress}
+    public_status = "running" if status in {"queued", "running"} else ("failed" if status == "error" else status)
+    return {"status": public_status, **progress}
 
 
 @router.post("/stop")

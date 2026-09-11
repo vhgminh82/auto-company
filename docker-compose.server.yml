@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cncglobal-app-1
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - cncglobal_default
+
+networks:
+  cncglobal_default:
+    external: true

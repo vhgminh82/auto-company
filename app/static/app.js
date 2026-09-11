@@ -350,12 +350,30 @@ function buildIndustryGroupOptions(containerId, fieldName, values, counts) {
   target.innerHTML = groups.map((group) => `<label class="${group.values.length ? '' : 'muted'}"><input type="checkbox" data-multi-field="${fieldName}" value="${emktEscape(group.values.join(','))}" ${group.values.length ? '' : 'disabled'} /> <span>${emktEscape(group.label)}</span><small>${group.count}</small></label>`).join('');
   target.querySelectorAll('input').forEach((input) => input.addEventListener('change', () => syncMultiOptions(fieldName)));
 }
+async function updateContactNewListCount() {
+  const target = document.getElementById("contactNewListCount");
+  if (!target) return;
+  const params = new URLSearchParams({
+    country_filter: document.getElementById("contactNewListCountry")?.value || "",
+    industry_filter: document.getElementById("contactNewListIndustry")?.value || "",
+  });
+  target.textContent = "Đang tính số khách hàng...";
+  try {
+    const response = await fetch(`/api/contact-campaign/selection-count?${params}`);
+    const data = await response.json();
+    target.textContent = `Khách hàng: ${Number(data.count || 0).toLocaleString("vi-VN")}`;
+  } catch (error) {
+    target.textContent = "Khách hàng: 0";
+  }
+}
+
 function syncMultiOptions(fieldName) {
   const values = [...document.querySelectorAll(`input[data-multi-field="${fieldName}"]:checked`)].map((input) => input.value);
   const prefix = fieldName.startsWith('contact_') ? 'contactNewList' : 'emktNewList';
   const suffix = fieldName.includes('country') ? 'Country' : 'Industry';
   document.getElementById(`${prefix}${suffix}`).value = values.join(',');
   if (!fieldName.startsWith('contact_')) previewNewList();
+  else updateContactNewListCount();
 }
 
 setInterval(() => {
@@ -767,7 +785,7 @@ async function loadContactCampaign() {
     fetch('/api/contact-campaign/scenarios').then(r => r.json()), fetch('/api/contact-campaign/lists').then(r => r.json()), fetch('/api/contact-campaign/runs').then(r => r.json())
   ]);
   window.contactScenarios = scenarios; window.contactLists = lists;
-  if (document.getElementById('contactListCountryFilter')?.options.length === 1) { const [countries, industries, facets] = await Promise.all([fetch('/api/countries').then(r => r.json()), fetch('/api/industries').then(r => r.json()), fetch('/api/contact-campaign/facets').then(r => r.json())]); document.getElementById('contactListCountryFilter').innerHTML = '<option value="">Tất cả quốc gia</option>' + countries.map(x => `<option value="${emktEscape(x)}">${emktEscape(COUNTRY_NAMES[x] || x)}</option>`).join(''); document.getElementById('contactListIndustryFilter').innerHTML = '<option value="">Tất cả ngành</option>' + industries.map(x => `<option value="${emktEscape(x)}">${emktEscape(x)}</option>`).join(''); if (!document.getElementById('contactNewListCountryOptions').innerHTML) { buildMultiOptions('contactNewListCountryOptions', 'contact_country_filter', countries, x => COUNTRY_NAMES[x] || x, facets.countries); buildIndustryGroupOptions('contactNewListIndustryOptions', 'contact_industry_filter', industries, facets.industries); } }
+  if (document.getElementById('contactListCountryFilter')?.options.length === 1) { const [countries, industries, facets] = await Promise.all([fetch('/api/countries').then(r => r.json()), fetch('/api/industries').then(r => r.json()), fetch('/api/contact-campaign/facets').then(r => r.json())]); document.getElementById('contactListCountryFilter').innerHTML = '<option value="">Tất cả quốc gia</option>' + countries.map(x => `<option value="${emktEscape(x)}">${emktEscape(COUNTRY_NAMES[x] || x)}</option>`).join(''); document.getElementById('contactListIndustryFilter').innerHTML = '<option value="">Tất cả ngành</option>' + industries.map(x => `<option value="${emktEscape(x)}">${emktEscape(x)}</option>`).join(''); if (!document.getElementById('contactNewListCountryOptions').innerHTML) { buildMultiOptions('contactNewListCountryOptions', 'contact_country_filter', countries, x => COUNTRY_NAMES[x] || x, facets.countries); buildIndustryGroupOptions('contactNewListIndustryOptions', 'contact_industry_filter', industries, facets.industries); updateContactNewListCount(); } }
   document.getElementById('contactScenarioSelect').innerHTML = '<option value="">Chọn kịch bản</option>' + scenarios.map(x => `<option value="${x.id}">${emktEscape(x.name)}</option>`).join('');
   document.getElementById('contactListOptions').innerHTML = lists.length ? lists.map(x => `<label><input type="checkbox" name="contact_list_ids" value="${x.id}" /> ${emktEscape(x.name)} <small>${x.customer_count} contact</small></label>`).join('') : '<span>Chưa có list contact.</span>';
   const countryFilter = document.getElementById('contactListCountryFilter')?.value || '';
@@ -775,14 +793,43 @@ async function loadContactCampaign() {
   const visibleLists = lists.filter(x => (!countryFilter || x.country_filter?.includes(countryFilter)) && (!industryFilter || x.industry_filter?.includes(industryFilter)));
   document.getElementById('contactLists').innerHTML = visibleLists.length ? `<table class="campaign-table"><thead><tr><th>List</th><th>Bộ lọc</th><th>Khách hàng</th><th>Thống kê / thao tác</th></tr></thead><tbody>${visibleLists.map(x => `<tr><td><button class="campaign-name list-open-btn" type="button" data-contact-list-open="${x.id}">${emktEscape(x.name)}</button></td><td>${emktEscape(x.country_filter || 'Tất cả quốc gia')}<br>${emktEscape(x.industry_filter || 'Tất cả ngành')}</td><td>${x.customer_count} contact hợp lệ</td><td><button type="button" data-contact-list-edit="${x.id}">Sửa</button> <button type="button" class="danger-button" data-contact-list-delete="${x.id}">Xóa</button></td></tr>`).join('')}</tbody></table><div id="contactSelectedListCustomers"></div>` : '<p>Chưa có list contact.</p>';
   document.getElementById('contactScenarios').innerHTML = scenarios.length ? `<table class="campaign-table"><thead><tr><th>Tên kịch bản</th><th>Trường gửi</th><th>Thao tác</th></tr></thead><tbody>${scenarios.map(x => `<tr><td>${emktEscape(x.name)}</td><td>${Object.keys(x.fields || {}).length}</td><td><button type="button" data-contact-scenario-edit="${x.id}">Sửa</button> <button type="button" class="danger-button" data-contact-scenario-delete="${x.id}">Xóa</button></td></tr>`).join('')}</tbody></table>` : '<p>Chưa có kịch bản.</p>';
-  document.getElementById('contactHistory').innerHTML = runs.length ? `<table class="campaign-table"><thead><tr><th>Lần</th><th>Trạng thái</th><th>Thời gian</th><th>Tổng</th><th>Thành công</th><th>Lỗi</th><th>Captcha</th></tr></thead><tbody>${runs.map(x => `<tr><td>${x.id}</td><td>${emktEscape(x.status)}</td><td>${campaignDate(x.started_at)}<br>${campaignDate(x.completed_at)}</td><td>${x.total}</td><td>${x.success}</td><td>${x.failed}</td><td>${x.captcha}</td></tr>`).join('')}</tbody></table>` : '<p>Chưa có lịch sử chạy.</p>';
+  document.getElementById('contactHistory').innerHTML = runs.length ? `<table class="campaign-table contact-history-table"><thead><tr><th>Lần</th><th>Trạng thái</th><th>List</th><th>Kịch bản</th><th>Thời gian</th><th>Tổng</th><th>Thành công</th><th>Lỗi</th><th>Captcha</th></tr></thead><tbody>${runs.map(x => { const scenario = scenarios.find(item => item.id === x.scenario_id); const listNames = (x.list_ids || []).map(id => lists.find(item => item.id === id)?.name).filter(Boolean); return `<tr><td><button type="button" class="contact-run-link" data-contact-run-details="${x.id}">Lần ${x.id}</button></td><td>${emktEscape(x.status)}</td><td>${emktEscape(listNames.join(', ') || 'Không xác định')}</td><td>${emktEscape(scenario?.name || 'Không xác định')}</td><td>${campaignDate(x.started_at)}<br>${campaignDate(x.completed_at)}</td><td>${x.total}</td><td>${x.success}</td><td>${x.failed}</td><td>${x.captcha}</td></tr>`; }).join('')}</tbody></table>` : '<p>Chưa có lịch sử chạy.</p>';
+}
+async function showContactRunDetails(runId) {
+  const modal = document.getElementById("contactRunDetailsModal");
+  const summary = document.getElementById("contactRunDetailsSummary");
+  const body = document.getElementById("contactRunDetailsBody");
+  modal.hidden = false; body.textContent = "Đang tải...";
+  const rows = await (await fetch(`/api/contact-campaign/run/${runId}/details`)).json();
+  const counts = rows.reduce((acc, row) => { acc[row.status] = (acc[row.status] || 0) + 1; return acc; }, {});
+  summary.innerHTML = `<div class="contact-detail-summary"><span>Tổng: ${rows.length}</span><span class="success">Thành công: ${counts.success || 0}</span><span class="failed">Thất bại: ${counts.failed || 0}</span><span class="captcha">CAPTCHA: ${counts.captcha || 0}</span></div>`;
+  body.innerHTML = rows.length ? `<div class="campaign-table-wrap"><table class="campaign-table contact-details-table"><thead><tr><th>Công ty</th><th>Website</th><th>Trạng thái</th><th>Chi tiết</th><th>Thời gian</th></tr></thead><tbody>${rows.map(row => `<tr><td>${emktEscape(row.company_name)}</td><td>${emktEscape(row.website)}</td><td>${emktEscape(row.status)}</td><td>${emktEscape(row.message)}</td><td>${campaignDate(row.created_at)}</td></tr>`).join("")}</tbody></table></div>` : "Lần chạy này chưa lưu chi tiết từng website. Các lần chạy mới sẽ hiển thị đầy đủ.";
 }
 async function startContactCampaign() {
-  const scenarioId = Number(document.getElementById('contactScenarioSelect').value); const listIds = [...document.querySelectorAll('[name="contact_list_ids"]:checked')].map(x => Number(x.value)); const status = document.getElementById('contactCampaignStatus');
-  if (!scenarioId || !listIds.length) { status.textContent = 'Hãy chọn kịch bản và ít nhất một list.'; return; }
-  const response = await fetch('/api/contact-campaign/run', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({scenario_id:scenarioId, list_ids:listIds})}); const body = await response.json();
-  if (!response.ok) { status.textContent = body.detail || 'Không thể bắt đầu.'; return; }
-  const timer = setInterval(async () => { const run = await (await fetch(`/api/contact-campaign/run/${body.run_id}`)).json(); status.textContent = `Đang chạy: ${run.processed}/${run.total}`; document.getElementById('contactCurrentResult').textContent = `Thành công: ${run.success} · Lỗi: ${run.failed} · CAPTCHA: ${run.captcha}`; if (['completed','failed'].includes(run.status)) { clearInterval(timer); status.textContent = run.status === 'completed' ? 'Đã hoàn tất.' : 'Lần chạy bị lỗi.'; await loadContactCampaign(); } }, 2000);
+  const button = document.getElementById("startContactCampaignBtn");
+  const stopButton = document.getElementById("stopContactCampaignBtn");
+  const status = document.getElementById("contactCampaignStatus");
+  const log = document.getElementById("contactRunLog");
+  const scenarioId = Number(document.getElementById("contactScenarioSelect").value);
+  const listIds = [...document.querySelectorAll("[name=contact_list_ids]:checked")].map(x => Number(x.value));
+  if (!scenarioId || !listIds.length) { status.textContent = "Hãy chọn kịch bản và ít nhất một list."; return; }
+  button.disabled = true; stopButton.disabled = false; log.textContent = "Đang khởi động...";
+  const response = await fetch("/api/contact-campaign/run", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({scenario_id:scenarioId, list_ids:listIds})});
+  const body = await response.json();
+  if (!response.ok) { status.textContent = body.detail || "Không thể bắt đầu."; button.disabled = false; stopButton.disabled = true; return; }
+  window.contactRunId = body.run_id;
+  window.contactCampaignTimer = setInterval(async () => {
+    const run = await (await fetch(`/api/contact-campaign/run/${body.run_id}`)).json();
+    status.textContent = `Đang chạy: ${run.processed}/${run.total} · thành công ${run.success} · lỗi ${run.failed} · CAPTCHA ${run.captcha}`;
+    document.getElementById("contactCurrentResult").textContent = `Thành công: ${run.success} · Lỗi: ${run.failed} · CAPTCHA: ${run.captcha}`;
+    log.textContent = (run.logs || []).map(x => { const detail = `${x.company || "Không rõ công ty"} · website: ${x.website || "không có"} · ${x.message || x.status}`; return `[${x.progress || "?/?"}] [${x.time || ""}] ${detail}`; }).join("\n") || "Chưa có log.";
+    log.scrollTop = log.scrollHeight;
+    if (["completed", "failed", "stopped"].includes(run.status)) {
+      clearInterval(window.contactCampaignTimer); button.disabled = false; stopButton.disabled = true;
+      status.textContent = run.status === "completed" ? "Đã hoàn tất." : run.status === "stopped" ? "Đã dừng." : "Lần chạy bị lỗi.";
+      await loadContactCampaign();
+    }
+  }, 1500);
 }
 function openContactScenario(id = null) { contactScenarioEditingId = id; const item = id ? window.contactScenarios.find(x => x.id === id) : null; const form = document.getElementById('contactScenarioForm'); form.reset(); form.elements.name.value = item?.name || ''; document.querySelectorAll('[data-scenario-field]').forEach(input => { input.value = item?.fields?.[input.dataset.scenarioField] || ''; }); const custom = Object.entries(item?.fields || {}).filter(([key]) => !['name','company','email','phone','subject','website','address','message'].includes(key)); form.elements.custom_fields.value = custom.map(([k,v]) => `${k}=${v}`).join('\n'); document.getElementById('contactScenarioModal').hidden = false; }
 async function saveContactScenario(event) { event.preventDefault(); const form = event.target; const fields = Object.fromEntries([...form.querySelectorAll('[data-scenario-field]')].filter(input => input.value.trim()).map(input => [input.dataset.scenarioField, input.value.trim()])); Object.assign(fields, parseScenarioFields(form.elements.custom_fields.value)); const payload = {name: form.elements.name.value.trim(), fields}; const url = contactScenarioEditingId ? `/api/contact-campaign/scenarios/${contactScenarioEditingId}` : '/api/contact-campaign/scenarios'; const response = await fetch(url, {method: contactScenarioEditingId ? 'PUT' : 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); const body = await response.json(); if (!response.ok) { document.getElementById('contactScenarioStatus').textContent = body.detail || 'Không lưu được.'; return; } document.getElementById('contactScenarioModal').hidden = true; await loadContactCampaign(); }
@@ -882,7 +929,9 @@ async function refreshEnrichDataStatus() {
   const button = document.getElementById('enrichDataBtn');
   const stopButton = document.getElementById('stopEnrichDataBtn');
   const statusEl = document.getElementById('enrichDataStatus');
-  const {status, current, total, remaining, found, latest} = await (await fetch('/api/contact-enrichment/status')).json();
+  const response = await fetch('/api/contact-enrichment/status');
+  if (!response.ok) throw new Error('Status request failed');
+  const {status, current, total, remaining, found, latest, error} = await response.json();
   if (status === 'running') {
     button.disabled = true;
     stopButton.disabled = false;
@@ -895,17 +944,27 @@ async function refreshEnrichDataStatus() {
     button.disabled = false;
     stopButton.disabled = true;
     if (status === 'completed') statusEl.textContent = `Hoàn tất: đã tìm được ${found || 0} dữ liệu mới.`;
-    if (status === 'failed') statusEl.textContent = 'Hoàn thiện dữ liệu bị lỗi. Xem craw_data/company_contacts.log.';
+    if (status === 'failed') statusEl.textContent = `Hoàn thiện dữ liệu bị lỗi${error ? `: ${error}` : '.'}`;
   }
 }
 
 document.getElementById('enrichDataBtn').addEventListener('click', async () => {
-  const response = await fetch('/api/contact-enrichment/start', {method: 'POST'});
+  let response;
+  try {
+    response = await fetch('/api/contact-enrichment/start', {method: 'POST'});
+  } catch (error) {
+    document.getElementById('enrichDataStatus').textContent = 'Không thể kết nối máy chủ.';
+    return;
+  }
   if (!response.ok) {
     document.getElementById('enrichDataStatus').textContent = 'Không thể khởi động hoàn thiện dữ liệu.';
     return;
   }
-  refreshEnrichDataStatus();
+  try {
+    await refreshEnrichDataStatus();
+  } catch (error) {
+    document.getElementById('enrichDataStatus').textContent = 'Không đọc được trạng thái job.';
+  }
 });
 
 document.getElementById('stopEnrichDataBtn').addEventListener('click', async () => {
@@ -919,9 +978,13 @@ document.getElementById('stopEnrichDataBtn').addEventListener('click', async () 
   document.getElementById('enrichDataBtn').disabled = false;
   document.getElementById('stopEnrichDataBtn').disabled = true;
 });
-document.getElementById('inspectContactBtn').addEventListener('click', inspectContact);
 document.getElementById('startContactCampaignBtn').addEventListener('click', startContactCampaign);
 document.getElementById('newContactScenarioBtn').addEventListener('click', () => openContactScenario());
+document.getElementById("stopContactCampaignBtn").addEventListener("click", async () => {
+  if (!window.contactRunId) return;
+  await fetch(`/api/contact-campaign/run/${window.contactRunId}/stop`, {method:"POST"});
+  document.getElementById("contactCampaignStatus").textContent = "Đang dừng...";
+});
 let contactListEditingId = null;
 document.getElementById('newContactListBtn').addEventListener('click', () => { contactListEditingId = null; const form = document.getElementById('contactListForm'); form.reset(); document.querySelectorAll('#contactListForm [data-multi-field]').forEach(x => x.checked = false); document.getElementById('contactListModal').hidden = false; });
 document.getElementById('closeContactListModal').addEventListener('click', () => { document.getElementById('contactListModal').hidden = true; });
@@ -929,20 +992,13 @@ document.getElementById('contactListForm').addEventListener('submit', async even
 document.getElementById('contactListFilterBtn').addEventListener('click', loadContactCampaign);
 function restoreContactMultiOptions(fieldName, value) { const selected = new Set(String(value || '').split(',').map(x => x.trim()).filter(Boolean)); document.querySelectorAll(`input[data-multi-field="${fieldName}"]`).forEach(input => { input.checked = input.value.split(',').some(x => selected.has(x.trim())); }); syncMultiOptions(fieldName); }
 document.getElementById('contactLists').addEventListener('click', async event => { const edit = event.target.closest('[data-contact-list-edit]'); const del = event.target.closest('[data-contact-list-delete]'); const open = event.target.closest('[data-contact-list-open]'); if (open) { const rows = await (await fetch(`/api/contact-campaign/lists/${open.dataset.contactListOpen}/customers`)).json(); document.getElementById('contactSelectedListCustomers').innerHTML = `<h3>Khách hàng trong list (${rows.length})</h3><table class="campaign-table"><thead><tr><th>Khách hàng</th><th>Email</th><th>Website</th></tr></thead><tbody>${rows.map(x => `<tr><td>${emktEscape(x.name)}</td><td>${emktEscape(x.email)}</td><td>${emktEscape(x.website)}</td></tr>`).join('')}</tbody></table>`; } if (edit) { const item = window.contactLists.find(x => x.id === Number(edit.dataset.contactListEdit)); contactListEditingId = item.id; const form = document.getElementById('contactListForm'); form.elements.name.value = item.name; form.elements.country_filter.value = item.country_filter || ''; form.elements.industry_filter.value = item.industry_filter || ''; document.querySelectorAll('#contactListForm [data-multi-field]').forEach(x => x.checked = false); restoreContactMultiOptions('contact_country_filter', item.country_filter); restoreContactMultiOptions('contact_industry_filter', item.industry_filter); document.getElementById('contactListModal').hidden = false; } if (del && confirm('Xóa list contact này?')) { await fetch(`/api/contact-campaign/lists/${del.dataset.contactListDelete}`, {method:'DELETE'}); await loadContactCampaign(); } });
+document.getElementById("closeContactRunDetailsModal").addEventListener("click", () => { document.getElementById("contactRunDetailsModal").hidden = true; });
+document.getElementById("contactHistory").addEventListener("click", event => { const button = event.target.closest("[data-contact-run-details]"); if (button) showContactRunDetails(Number(button.dataset.contactRunDetails)); });
 document.getElementById('closeContactScenarioModal').addEventListener('click', () => { document.getElementById('contactScenarioModal').hidden = true; });
 document.getElementById('contactScenarioForm').addEventListener('submit', saveContactScenario);
 document.querySelectorAll('[data-contact-panel]').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('[data-contact-panel]').forEach(x => x.classList.toggle('active', x === button)); document.querySelectorAll('.contact-subpanel').forEach(x => { x.hidden = x.id !== `contact${button.dataset.contactPanel[0].toUpperCase()}${button.dataset.contactPanel.slice(1)}Panel`; }); if (button.dataset.contactPanel === 'history') loadContactCampaign(); }));
 document.getElementById('contactScenarios').addEventListener('click', async event => { const edit = event.target.closest('[data-contact-scenario-edit]'); const del = event.target.closest('[data-contact-scenario-delete]'); if (edit) openContactScenario(Number(edit.dataset.contactScenarioEdit)); if (del && confirm('Xóa kịch bản này?')) { await fetch(`/api/contact-campaign/scenarios/${del.dataset.contactScenarioDelete}`, {method:'DELETE'}); await loadContactCampaign(); } });
 document.getElementById('runSheetBtn').addEventListener('click', runSheetJob);
-document.getElementById('runDbContactBtn').addEventListener('click', runDbContactJob);
-document.getElementById('stopDbContactBtn').addEventListener('click', async () => {
-  const jobId = window.currentDbContactJobId;
-  if (!jobId) return;
-  await fetch(`/api/contact/db/stop/${jobId}`, {method:'POST'});
-  document.getElementById('dbContactStatus').textContent = 'DB: Đã dừng.';
-  document.getElementById('runDbContactBtn').disabled = false;
-  document.getElementById('stopDbContactBtn').disabled = true;
-});
 document.getElementById('addKeywordBtn').addEventListener('click', addKeywordRow);
 document.getElementById('keywordRows').addEventListener('change', (event) => {
   if (event.target.name === 'activeKeyword') {

@@ -11,6 +11,7 @@ import os
 from urllib.parse import quote
 from datetime import datetime, timezone
 from email.message import EmailMessage
+from email.utils import make_msgid
 from pathlib import Path
 
 from cryptography.fernet import Fernet
@@ -26,6 +27,7 @@ KEY_FILE = ROOT / ".ses_credentials.key"
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 _jobs: dict[int, tuple[threading.Thread, threading.Event]] = {}
 _jobs_lock = threading.Lock()
+campaign_start_lock = threading.Lock()
 
 
 def _fernet() -> Fernet:
@@ -186,6 +188,7 @@ def _send_one(connection, account: SesAccount, campaign: EmktCampaign, recipient
     message["From"] = sender
     message["To"] = recipient.email
     message["Subject"] = render_template(campaign.subject, recipient)
+    message["Message-ID"] = make_msgid()
     text_body = render_template(campaign.text_body, recipient)
     html_body = add_tracking(render_template(campaign.html_body, recipient), recipient)
     if account.configuration_set:

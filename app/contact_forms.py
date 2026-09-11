@@ -84,13 +84,23 @@ async def inspect_url(url: str) -> dict:
     if not fetch:
         return {"url": normalized, "forms": [], "contact_pages": [], "error": "Không tải được URL."}
     forms, links = inspect_html(fetch.final_url, fetch.html)
+    if not forms and fetch.fetcher == "http":
+        browser_fetch = await BrowserFetcher().fetch(normalized)
+        if browser_fetch:
+            fetch = browser_fetch
+            forms, links = inspect_html(fetch.final_url, fetch.html)
     page_text = BeautifulSoup(fetch.html, "html.parser").get_text(" ", strip=True)[:12000]
     checked = {fetch.final_url}
     for contact_url in links:
         if contact_url in checked:
             continue
-        page = await HttpFetcher().fetch(contact_url) or await BrowserFetcher().fetch(contact_url)
+        page = await HttpFetcher().fetch(contact_url)
         if page:
+            extra, _ = inspect_html(page.final_url, page.html)
+            if not extra and page.fetcher == "http":
+                browser_page = await BrowserFetcher().fetch(contact_url)
+                if browser_page:
+                    page = browser_page
             extra, _ = inspect_html(page.final_url, page.html)
             forms.extend(extra)
             checked.add(contact_url)

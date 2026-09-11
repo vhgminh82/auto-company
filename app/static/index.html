@@ -9,6 +9,7 @@
 <body>
   <main class="container">
     <h1>Company Crawl Platform</h1>
+    <div class="auth-bar"><span id="currentUser"></span><form method="post" action="/auth/logout"><button type="submit">Đăng xuất</button></form></div>
 
     <nav class="tabs" aria-label="Các tính năng">
       <button class="tab-button active" data-tab="contactTab">Gửi contact</button>
@@ -19,17 +20,16 @@
     </nav>
 
     <div id="contactTab" class="tab-content">
-    <div class="emkt-subtabs contact-subtabs"><button class="emkt-subtab active" data-contact-panel="run">Contact</button><button class="emkt-subtab" data-contact-panel="history">Thống kê</button><button class="emkt-subtab" data-contact-panel="scenarios">Kịch bản</button><button class="emkt-subtab" data-contact-panel="lists">List contact</button><button class="emkt-subtab" data-contact-panel="check">Check contact</button></div>
+    <div class="emkt-subtabs contact-subtabs"><button class="emkt-subtab active" data-contact-panel="run">Contact</button><button class="emkt-subtab" data-contact-panel="history">Thống kê</button><button class="emkt-subtab" data-contact-panel="scenarios">Kịch bản</button><button class="emkt-subtab" data-contact-panel="lists">List contact</button></div>
     <section id="contactRunPanel" class="panel contact-subpanel">
       <h2>Gửi contact</h2>
       <div class="grid"><label>Kịch bản<select id="contactScenarioSelect"><option value="">Chọn kịch bản</option></select></label><fieldset class="contact-list-picker"><legend>Chọn list contact</legend><div id="contactListOptions">Đang tải...</div></fieldset></div>
-      <div class="actions"><button id="startContactCampaignBtn" type="button">Bắt đầu</button><span id="contactCampaignStatus">Chưa chạy.</span></div>
-      <h3>Kết quả lần chạy này</h3><div id="contactCurrentResult">Chưa có lần chạy.</div>
+      <div class="actions"><button id="startContactCampaignBtn" type="button">Bắt đầu</button><button id="stopContactCampaignBtn" class="danger-button" type="button" disabled>Dừng</button><span id="contactCampaignStatus">Chưa chạy.</span></div>
+      <h3>Kết quả lần chạy này</h3><div id="contactCurrentResult">Chưa có lần chạy.</div><pre id="contactRunLog" class="run-log">Chưa có log.</pre>
     </section>
     <section id="contactHistoryPanel" class="panel contact-subpanel" hidden><h2>Thống kê</h2><div id="contactHistory">Đang tải...</div></section>
     <section id="contactScenariosPanel" class="panel contact-subpanel" hidden><div class="campaign-header"><h2>Kịch bản</h2><button id="newContactScenarioBtn" type="button">+ Thêm</button></div><div id="contactScenarios">Đang tải...</div></section>
     <section id="contactListsPanel" class="panel contact-subpanel" hidden><div class="campaign-header"><h2>List contact</h2><button id="newContactListBtn" type="button">+ New</button></div><p>Đây là bộ list riêng của Contact, chỉ lấy dữ liệu có trạng thái contact = ok.</p><div class="list-toolbar"><select id="contactListCountryFilter"><option value="">Tất cả quốc gia</option></select><select id="contactListIndustryFilter"><option value="">Tất cả ngành</option></select><button id="contactListFilterBtn" type="button">Lọc</button></div><div id="contactLists">Đang tải...</div></section>
-    <section id="contactCheckPanel" class="panel contact-subpanel" hidden><h2>Check contact</h2><p>Kiểm tra website trong bảng dữ liệu và ghi trạng thái vào cột contact.</p><div class="grid"><input id="contactUrl" placeholder="https://example.com" /><button id="inspectContactBtn">Kiểm tra thử</button></div><p id="contactStatus">Chưa kiểm tra.</p><div id="contactForms"></div><div class="actions"><button id="runDbContactBtn">Bắt đầu kiểm tra toàn bộ DB</button><button id="stopDbContactBtn" class="danger-button" type="button" disabled>Dừng</button><span id="dbContactStatus">Chưa chạy.</span></div></section>
 
     <section class="panel contact-legacy-panel" hidden>
       <h2>Cập nhật trạng thái Contact vào Google Sheet</h2>
@@ -44,7 +44,8 @@
       <p id="dbContactStatus">DB: Chưa chạy.</p>
     </section>
     <div id="contactScenarioModal" class="modal" hidden><div class="modal-content"><button id="closeContactScenarioModal" class="modal-close" type="button">×</button><h2>Kịch bản contact</h2><form id="contactScenarioForm"><input name="name" placeholder="Tên kịch bản" required /><p>Điền nội dung muốn tự động gửi vào các trường contact form. Có thể dùng {{company_name}} và {{website}}.</p><div class="scenario-fields-grid"><label>Họ tên<input data-scenario-field="name" placeholder="Nguyễn Văn A" /></label><label>Tên công ty<input data-scenario-field="company" placeholder="CNCTech" /></label><label>Email<input data-scenario-field="email" type="email" placeholder="contacts@example.com" /></label><label>Điện thoại<input data-scenario-field="phone" placeholder="+84..." /></label><label>Tiêu đề<input data-scenario-field="subject" placeholder="Nội dung liên hệ" /></label><label>Website<input data-scenario-field="website" placeholder="https://..." /></label><label>Địa chỉ<input data-scenario-field="address" placeholder="Địa chỉ công ty" /></label><label>Nội dung<textarea data-scenario-field="message" rows="3" placeholder="Xin chào {{company_name}}..."></textarea></label></div><label>Trường tùy chỉnh<small> Mỗi dòng: tên trường=giá trị (ví dụ: your-name=Nguyễn Văn A)</small><textarea name="custom_fields" rows="4" placeholder="your-name=Nguyễn Văn A&#10;your-company=CNCTech"></textarea></label><div class="actions"><button type="submit">Lưu kịch bản</button><span id="contactScenarioStatus"></span></div></form></div></div>
-    <div id="contactListModal" class="modal" hidden><div class="modal-content list-modal-content"><button id="closeContactListModal" class="modal-close" type="button">×</button><h2>New list contact</h2><form id="contactListForm"><input name="name" placeholder="Tên list" required /><input type="hidden" name="country_filter" id="contactNewListCountry" /><div><strong>Quốc gia</strong><div id="contactNewListCountryOptions" class="multi-options"></div></div><input type="hidden" name="industry_filter" id="contactNewListIndustry" /><div><strong>Ngành</strong><div id="contactNewListIndustryOptions" class="multi-options"></div></div><p>List này chỉ lấy các dòng có contact = ok.</p><div class="actions"><button type="submit">Lưu list</button><span id="contactListModalStatus"></span></div></form></div></div>
+    <div id="contactRunDetailsModal" class="modal" hidden><div class="modal-content contact-run-details-modal"><button id="closeContactRunDetailsModal" class="modal-close" type="button">×</button><h2>Chi tiết gửi contact</h2><div id="contactRunDetailsSummary">Đang tải...</div><div id="contactRunDetailsBody">Đang tải...</div></div></div>
+    <div id="contactListModal" class="modal" hidden><div class="modal-content list-modal-content"><button id="closeContactListModal" class="modal-close" type="button">×</button><h2>New list contact</h2><form id="contactListForm"><input name="name" placeholder="Tên list" required /><input type="hidden" name="country_filter" id="contactNewListCountry" /><div><strong>Quốc gia</strong><div id="contactNewListCountryOptions" class="multi-options"></div></div><input type="hidden" name="industry_filter" id="contactNewListIndustry" /><div><strong>Ngành</strong><div id="contactNewListIndustryOptions" class="multi-options"></div></div><p id="contactNewListCount" class="list-selection-count">Khách hàng: 0</p><div class="actions"><button type="submit">Lưu list</button><span id="contactListModalStatus"></span></div></form></div></div>
     </div>
 
     <div id="emktTab" class="tab-content" hidden>

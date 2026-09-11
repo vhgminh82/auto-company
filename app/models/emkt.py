@@ -136,6 +136,17 @@ class ContactRun(Base):
     captcha: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
+class ContactRunDetail(Base):
+    __tablename__ = "contact_run_details"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("contact_runs.id"), nullable=False, index=True)
+    company_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    company_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    website: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="failed")
+    message: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
 class ContactList(Base):
     __tablename__ = "contact_lists"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

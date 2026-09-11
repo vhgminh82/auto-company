@@ -1,4 +1,4 @@
-﻿# Crawl Company Platform
+# Crawl Company Platform
 
 Nền tảng crawl dữ liệu doanh nghiệp theo quốc gia, khu vực, ngành nghề với lưu trữ SQLite và giao diện tìm kiếm/export.
 
@@ -66,3 +66,22 @@ Mở: http://127.0.0.1:8000
 
 ## Roadmap
 - Phase 4: queue worker + job monitor dashboard.
+
+### Đăng nhập Google và Microsoft 365
+
+App yêu cầu đăng nhập trước khi truy cập giao diện và API. Tạo OAuth app ở Google Cloud Console và Microsoft Entra ID, sau đó cấu hình:
+
+```env
+AUTH_BASE_URL=https://ten-mien-cua-ban.example
+AUTH_SESSION_SECRET=<chuoi-ngau-nhien-dai>
+GOOGLE_CLIENT_ID=<google-client-id>
+GOOGLE_CLIENT_SECRET=<google-client-secret>
+MICROSOFT_CLIENT_ID=<entra-application-client-id>
+MICROSOFT_CLIENT_SECRET=<entra-client-secret>
+```
+
+Đăng ký đúng callback URL tương ứng:
+- `https://ten-mien-cua-ban.example/auth/google/callback`
+- `https://ten-mien-cua-ban.example/auth/microsoft/callback`
+
+Có thể chỉ cấu hình một nhà cung cấp; nút chưa cấu hình sẽ không hiển thị. Khi chạy local, dùng `AUTH_BASE_URL=http://127.0.0.1:9997` và đăng ký callback cùng địa chỉ đó.
