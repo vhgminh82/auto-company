@@ -105,6 +105,8 @@ th { position: sticky; top: 0; background: #eaf2fb; }
 #settingsModal .campaign-table th:nth-child(1) { width: 42%; }
 #settingsModal .campaign-table th:nth-child(2) { width: 24%; }
 #settingsModal .campaign-table th:nth-child(3) { width: 18%; }
+.settings-user-actions { display: inline-flex; gap: 6px; flex-wrap: nowrap; white-space: nowrap; }
+.settings-user-actions button { margin: 0; }
 .modal-close { position: absolute; top: 8px; right: 10px; background: transparent; color: #1d2a3b; border: 0; font-size: 24px; }
 .modal-save { position: absolute; top: 12px; right: 48px; padding: 7px 14px; }
 .keyword-row { display: flex; gap: 8px; margin: 8px 0; }

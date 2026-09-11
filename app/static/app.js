@@ -1085,7 +1085,7 @@ async function initAuthAndSettings() {
     document.getElementById('settingsModal').hidden = false;
     const target = document.getElementById('pendingUsers');
     const users = await (await fetch('/api/auth/users')).json();
-    target.innerHTML = users.length ? `<table class="campaign-table"><thead><tr><th>Email</th><th>Tên</th><th>Trạng thái</th><th></th></tr></thead><tbody>${users.map(x => `<tr><td>${emktEscape(x.email)}</td><td>${emktEscape(x.name || '')}</td><td>${x.status}</td><td>${x.status === 'pending' ? `<button type="button" data-approve-user="${x.id}">Duyệt</button><button type="button" class="danger-button" data-reject-user="${x.id}">Từ chối</button>` : ''}</td></tr>`).join('')}</tbody></table>` : '<p>Chưa có tài khoản.</p>';
+    target.innerHTML = users.length ? `<table class="campaign-table"><thead><tr><th>Email</th><th>Tên</th><th>Trạng thái</th><th></th></tr></thead><tbody>${users.map(x => `<tr><td>${emktEscape(x.email)}</td><td>${emktEscape(x.name || '')}</td><td>${x.status}</td><td><span class="settings-user-actions">${x.status === 'pending' ? `<button type="button" data-approve-user="${x.id}">Duyệt</button><button type="button" class="danger-button" data-reject-user="${x.id}">Từ chối</button>` : ''}</span></td></tr>`).join('')}</tbody></table>` : '<p>Chưa có tài khoản.</p>';
   });
   document.getElementById('closeSettingsModal').addEventListener('click', () => { document.getElementById('settingsModal').hidden = true; });
   document.getElementById('pendingUsers').addEventListener('click', async (event) => {

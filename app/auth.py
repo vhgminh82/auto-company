@@ -35,6 +35,8 @@ def login_page(request: Request):
         return RedirectResponse("/", status_code=303)
     buttons = []
     message = {"pending_approval": "Tài khoản đã ghi nhận và đang chờ admin duyệt.", "rejected": "Tài khoản chưa được admin cho phép.", "oauth_failed": "Đăng nhập OAuth thất bại."}.get(request.query_params.get("error", ""), "")
+    if message:
+        buttons.append(f'<p class="login-error">{message}</p>')
     for key, provider in _providers().items():
         if provider["client_id"] and provider["client_secret"]:
             buttons.append(f'<a class="login-button {key}" href="/auth/{key}/start">Đăng nhập với {provider["label"]}</a>')
