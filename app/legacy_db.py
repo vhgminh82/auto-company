@@ -6,7 +6,12 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 def _url() -> str:
+    configured = os.getenv("SUPABASE_DATABASE_URL", "").strip()
+    if configured:
+        return configured
     env_path = Path(__file__).resolve().parent.parent / ".env"
+    if not env_path.exists():
+        raise RuntimeError("SUPABASE_DATABASE_URL chưa được cấu hình")
     for line in env_path.read_text(encoding="utf-8").splitlines():
         if line.startswith("SUPABASE_DATABASE_URL="):
             value=line.split("=",1)[1].strip().strip('"').strip("'")
