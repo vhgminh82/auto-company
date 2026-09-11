@@ -23,8 +23,8 @@ class AccountRequest(BaseModel):
     smtp_host: str = Field(default="email-smtp.us-east-1.amazonaws.com", min_length=3, max_length=255)
     smtp_port: int = Field(default=465, ge=1, le=65535)
     smtp_security: str = Field(default="ssl", pattern="^(ssl|starttls|none)$")
-    smtp_username: str = Field(min_length=1, max_length=512)
-    smtp_password: str = Field(min_length=1, max_length=1024)
+    smtp_username: str = Field(default="", max_length=512)
+    smtp_password: str = Field(default="", max_length=1024)
     from_email: str = Field(min_length=3, max_length=255)
     from_name: str = Field(default="", max_length=255)
     configuration_set: str = Field(default="", max_length=255)
@@ -77,9 +77,10 @@ class TestEmailRequest(BaseModel):
 
 
 def account_out(item: SesAccount) -> dict:
+    from app.emkt_service import decrypt_secret
     return {
         "id": item.id, "name": item.name, "smtp_host": item.smtp_host, "smtp_port": item.smtp_port,
-        "smtp_security": item.smtp_security, "smtp_username": item.smtp_username,
+        "smtp_security": item.smtp_security, "smtp_username": decrypt_secret(item.smtp_username),
         "from_email": item.from_email, "from_name": item.from_name,
         "configuration_set": item.configuration_set,
         "enabled": bool(item.enabled), "has_credentials": bool(item.smtp_username and item.smtp_password),
@@ -118,6 +119,8 @@ def list_accounts(db: Session = Depends(get_db)):
 
 @router.post("/accounts")
 def create_account(request: AccountRequest, db: Session = Depends(get_db)):
+    if not request.smtp_username.strip() or not request.smtp_password:
+        raise HTTPException(422, "SMTP username và password là bắt buộc khi tạo tài khoản.")
     name = request.name.strip()
     item = db.query(SesAccount).filter(SesAccount.name == name).first()
     if not item:
@@ -160,8 +163,10 @@ def update_account(account_id: int, request: AccountRequest, db: Session = Depen
     item.smtp_host = request.smtp_host.strip()
     item.smtp_port = request.smtp_port
     item.smtp_security = request.smtp_security
-    item.smtp_username = encrypt_secret(request.smtp_username.strip())
-    item.smtp_password = encrypt_secret(request.smtp_password)
+    if request.smtp_username.strip():
+        item.smtp_username = encrypt_secret(request.smtp_username.strip())
+    if request.smtp_password:
+        item.smtp_password = encrypt_secret(request.smtp_password)
     item.from_email = request.from_email.strip()
     item.from_name = request.from_name.strip()
     item.configuration_set = request.configuration_set.strip()

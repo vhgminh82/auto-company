@@ -436,9 +436,9 @@ document.getElementById('emktAccounts').addEventListener('click', async (event) 
     if (!account) return;
     const form = document.getElementById('emktAccountForm'); form.dataset.editId = editId;
     form.elements.name.value = account.name; form.elements.smtp_host.value = account.smtp_host; form.elements.smtp_port.value = account.smtp_port; form.elements.smtp_security.value = account.smtp_security; form.elements.from_email.value = account.from_email; form.elements.from_name.value = account.from_name || ''; form.elements.configuration_set.value = account.configuration_set || '';
-    form.elements.smtp_username.value = ''; form.elements.smtp_password.value = '';
+    form.elements.smtp_username.value = account.smtp_username || ''; form.elements.smtp_password.value = '';
     document.querySelector('#emktAccountModal h2').textContent = 'Sửa tài khoản SMTP AWS SES';
-    document.getElementById('emktAccountModal').hidden = false; document.getElementById('emktAccountModalStatus').textContent = 'Nhập lại SMTP username/password để lưu.';
+    document.getElementById('emktAccountModal').hidden = false; document.getElementById('emktAccountModalStatus').textContent = 'Để trống password nếu không muốn thay đổi.';
     return;
   }
   const testId = event.target.dataset.emktTest;
