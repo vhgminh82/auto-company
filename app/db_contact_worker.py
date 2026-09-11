@@ -9,6 +9,7 @@ from app.contact_forms import inspect_url
 from app.database import SessionLocal
 from app.models.company import Company
 from app.industry_normalizer import main_industry
+from app.address_parser import parse_address
 
 _jobs: dict[str, dict[str, Any]] = {}
 _tasks: dict[str, asyncio.Task] = {}
@@ -28,8 +29,11 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
     try:
         pending = db.query(Company).filter(
             Company.website != "",
-            ((Company.email == "") | (Company.email.is_(None)) |
-             (Company.contact == "") | (Company.contact.is_(None))),
+             ((Company.email == "") | (Company.email.is_(None)) |
+             (Company.contact == "") | (Company.contact.is_(None)) |
+             (Company.country == "") | (Company.country.is_(None)) |
+             (Company.city == "") | (Company.city.is_(None)) |
+             (Company.state == "") | (Company.state.is_(None))),
         ).all()
         job.update(total=len(pending), status="running", found=0, latest="")
         print(f"[db-contact] job={job_id} pending={len(pending)}", flush=True)
@@ -61,6 +65,13 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
 
             results = await asyncio.gather(*(process(company) for company in batch))
             for company, status, industry, email_result in results:
+                parsed_country, parsed_city, parsed_state = parse_address(company.address, company.country)
+                if parsed_country and not (company.country or "").strip():
+                    company.country = parsed_country
+                if parsed_city and not (company.city or "").strip():
+                    company.city = parsed_city
+                if parsed_state and not (company.state or "").strip():
+                    company.state = parsed_state
                 if not (company.contact or "").strip():
                     company.contact = status
                 if industry and industry != "Khác" and (not company.industry or company.industry == "Khác"):
