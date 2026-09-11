@@ -1,7 +1,7 @@
 ﻿* { box-sizing: border-box; font-family: "Segoe UI", Tahoma, sans-serif; }
 body { margin: 0; background: linear-gradient(160deg, #f7fbff, #edf3fb); color: #1d2a3b; }
-.container { width: min(1400px, 96vw); margin: 24px auto; }
-h1 { margin: 0 0 16px; }
+.container { width: min(1400px, 96vw); margin: 24px auto; position: relative; }
+h1 { margin: 0 0 16px; font-size: 30px; }
 .tabs { display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
 .tab-button { background: #dceaf7; color: #1d2a3b; border: 1px solid #b5c8dc; }
 .tab-button.active { background: #1f6fb2; color: #fff; }
@@ -132,7 +132,10 @@ th { position: sticky; top: 0; background: #eaf2fb; }
 #githubUpdateStatus { color: #1d5f3a; font-size: 14px; }
 .github-update-button { margin-left: auto; }
 #githubUpdateStatus { white-space: nowrap; }
-.auth-tools { display: flex; justify-content: flex-end; margin-top: -48px; margin-bottom: 30px; }
+.auth-tools { display: none; }
+.auth-bar { position: absolute; top: 0; right: 0; display: flex; align-items: center; gap: 8px; }
+.auth-bar #currentUser { position: absolute; top: 42px; right: 0; white-space: nowrap; font-size: 13px; color: #38516a; }
+.auth-bar form { margin: 0; }
 .settings-button { padding: 8px 10px; font-size: 18px; }
 .settings-button[hidden] { display: none; }
 
