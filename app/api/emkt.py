@@ -29,6 +29,9 @@ class AccountRequest(BaseModel):
     from_email: str = Field(min_length=3, max_length=255)
     from_name: str = Field(default="", max_length=255)
     configuration_set: str = Field(default="", max_length=255)
+    region: str = Field(default="us-west-2", min_length=1, max_length=64)
+    access_key_id: str = Field(default="", max_length=512)
+    secret_access_key: str = Field(default="", max_length=1024)
 
 
 class CampaignRequest(BaseModel):
@@ -85,9 +88,14 @@ def account_out(item: SesAccount) -> dict:
         # Credentials created with a previous encryption key cannot be recovered.
         # Keep the account list usable so the admin can replace them.
         smtp_username = ""
+    try:
+        access_key_id = decrypt_secret(item.access_key_id)
+    except InvalidToken:
+        access_key_id = ""
     return {
         "id": item.id, "name": item.name, "smtp_host": item.smtp_host, "smtp_port": item.smtp_port,
         "smtp_security": item.smtp_security, "smtp_username": smtp_username,
+        "region": item.region, "access_key_id": access_key_id,
         "from_email": item.from_email, "from_name": item.from_name,
         "configuration_set": item.configuration_set,
         "enabled": bool(item.enabled), "has_credentials": bool(item.smtp_username and item.smtp_password),
@@ -126,14 +134,17 @@ def list_accounts(db: Session = Depends(get_db)):
 
 @router.post("/accounts")
 def create_account(request: AccountRequest, db: Session = Depends(get_db)):
-    if not request.smtp_username.strip() or not request.smtp_password:
-        raise HTTPException(422, "SMTP username và password là bắt buộc khi tạo tài khoản.")
+    if not request.access_key_id.strip() or not request.secret_access_key:
+        if not request.smtp_username.strip() or not request.smtp_password:
+            raise HTTPException(422, "Cần nhập IAM Access Key ID và Secret Access Key để dùng SES API.")
     name = request.name.strip()
     item = db.query(SesAccount).filter(SesAccount.name == name).first()
     if not item:
-        item = SesAccount(name=name, region="smtp", enabled=1)
+        item = SesAccount(name=name, region=request.region.strip(), enabled=1)
         db.add(item)
-    item.region = "smtp"
+    item.region = request.region.strip()
+    item.access_key_id = encrypt_secret(request.access_key_id.strip()) if request.access_key_id.strip() else ""
+    item.secret_access_key = encrypt_secret(request.secret_access_key) if request.secret_access_key else ""
     item.smtp_host = request.smtp_host.strip()
     item.smtp_port = request.smtp_port
     item.smtp_security = request.smtp_security
@@ -167,6 +178,11 @@ def update_account(account_id: int, request: AccountRequest, db: Session = Depen
     if not item:
         raise HTTPException(404, "Không tìm thấy tài khoản SES.")
     item.name = request.name.strip()
+    item.region = request.region.strip()
+    if request.access_key_id.strip():
+        item.access_key_id = encrypt_secret(request.access_key_id.strip())
+    if request.secret_access_key:
+        item.secret_access_key = encrypt_secret(request.secret_access_key)
     item.smtp_host = request.smtp_host.strip()
     item.smtp_port = request.smtp_port
     item.smtp_security = request.smtp_security

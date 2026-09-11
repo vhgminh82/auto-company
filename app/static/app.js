@@ -393,7 +393,7 @@ async function saveEmktAccountFromModal() {
   const form = document.getElementById('emktAccountForm');
   const values = Object.fromEntries(new FormData(form));
   const payload = {};
-  ['name', 'smtp_host', 'smtp_port', 'smtp_security', 'smtp_username', 'smtp_password', 'from_email', 'from_name', 'configuration_set'].forEach((key) => { payload[key] = values[key] || ''; });
+  ['name', 'smtp_host', 'smtp_port', 'smtp_security', 'smtp_username', 'smtp_password', 'from_email', 'from_name', 'configuration_set', 'region', 'access_key_id', 'secret_access_key'].forEach((key) => { payload[key] = values[key] || ''; });
   const editId = form.dataset.editId || '';
   const response = await fetch(editId ? `/api/emkt/accounts/${editId}` : '/api/emkt/accounts', {method: editId ? 'PUT' : 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
   const body = await response.json();
@@ -436,9 +436,9 @@ document.getElementById('emktAccounts').addEventListener('click', async (event) 
     if (!account) return;
     const form = document.getElementById('emktAccountForm'); form.dataset.editId = editId;
     form.elements.name.value = account.name; form.elements.smtp_host.value = account.smtp_host; form.elements.smtp_port.value = account.smtp_port; form.elements.smtp_security.value = account.smtp_security; form.elements.from_email.value = account.from_email; form.elements.from_name.value = account.from_name || ''; form.elements.configuration_set.value = account.configuration_set || '';
-    form.elements.smtp_username.value = account.smtp_username || ''; form.elements.smtp_password.value = '';
+    form.elements.region.value = account.region || 'us-west-2'; form.elements.access_key_id.value = account.access_key_id || ''; form.elements.secret_access_key.value = ''; form.elements.smtp_username.value = account.smtp_username || ''; form.elements.smtp_password.value = '';
     document.querySelector('#emktAccountModal h2').textContent = 'Sửa tài khoản SMTP AWS SES';
-    document.getElementById('emktAccountModal').hidden = false; document.getElementById('emktAccountModalStatus').textContent = 'Để trống password nếu không muốn thay đổi.';
+    document.getElementById('emktAccountModal').hidden = false; document.getElementById('emktAccountModalStatus').textContent = 'Nhập IAM credentials để gửi qua SES API; để trống secret khi không đổi.';
     return;
   }
   const testId = event.target.dataset.emktTest;

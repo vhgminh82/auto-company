@@ -8,6 +8,7 @@ import ssl
 import threading
 import time
 import os
+import boto3
 from urllib.parse import quote
 from datetime import datetime, timezone
 from email.message import EmailMessage
@@ -42,6 +43,15 @@ def encrypt_secret(value: str) -> str:
 
 def decrypt_secret(value: str) -> str:
     return _fernet().decrypt(value.encode("ascii")).decode("utf-8") if value else ""
+
+
+def _ses_client(account: SesAccount):
+    access_key = decrypt_secret(account.access_key_id)
+    secret_key = decrypt_secret(account.secret_access_key)
+    if not access_key or not secret_key:
+        return None
+    return boto3.client("ses", region_name=(account.region or "us-east-1").strip(),
+                        aws_access_key_id=access_key, aws_secret_access_key=secret_key)
 
 
 def valid_email(value: str) -> bool:
@@ -162,6 +172,10 @@ def _smtp_connection(account: SesAccount):
 
 
 def test_account(account: SesAccount) -> dict:
+    client = _ses_client(account)
+    if client:
+        client.get_send_quota()
+        return {"ses_api_ok": True, "region": account.region}
     connection = _smtp_connection(account)
     try:
         return {"smtp_ok": True, "host": account.smtp_host, "port": account.smtp_port, "security": account.smtp_security}
@@ -174,6 +188,10 @@ def send_test_email(account: SesAccount, to_email: str, subject: str, body: str)
     message = EmailMessage()
     message["From"], message["To"], message["Subject"] = sender, to_email, subject
     message.set_content(body)
+    client = _ses_client(account)
+    if client:
+        response = client.send_raw_email(RawMessage={"Data": message.as_bytes()})
+        return str(response.get("MessageId", ""))
     connection = _smtp_connection(account)
     try:
         connection.send_message(message)
@@ -182,7 +200,7 @@ def send_test_email(account: SesAccount, to_email: str, subject: str, body: str)
         connection.quit()
 
 
-def _send_one(connection, account: SesAccount, campaign: EmktCampaign, recipient: EmktRecipient) -> str:
+def _send_one(transport, account: SesAccount, campaign: EmktCampaign, recipient: EmktRecipient) -> str:
     message = EmailMessage()
     sender = f"{account.from_name} <{account.from_email}>" if account.from_name else account.from_email
     message["From"] = sender
@@ -199,7 +217,10 @@ def _send_one(connection, account: SesAccount, campaign: EmktCampaign, recipient
         message.set_content("Vui lòng xem phiên bản HTML của email này.")
     if html_body:
         message.add_alternative(html_body, subtype="html")
-    connection.send_message(message)
+    if hasattr(transport, "send_raw_email"):
+        response = transport.send_raw_email(RawMessage={"Data": message.as_bytes()})
+        return str(response.get("MessageId", ""))
+    transport.send_message(message)
     return str(message.get("Message-ID", ""))
 
 
@@ -216,7 +237,7 @@ def _run_campaign(campaign_id: int, run_id: int, stop_event: threading.Event) ->
             if run: run.status = "failed"
             db.commit()
             return
-        connection = _smtp_connection(account)
+        transport = _ses_client(account) or _smtp_connection(account)
         campaign.status = "sending"
         if run: run.status = "sending"
         campaign.started_at = datetime.now(timezone.utc)
@@ -230,7 +251,7 @@ def _run_campaign(campaign_id: int, run_id: int, stop_event: threading.Event) ->
                 db.commit()
                 return
             try:
-                recipient.message_id = _send_one(connection, account, campaign, recipient)
+                recipient.message_id = _send_one(transport, account, campaign, recipient)
                 recipient.status = "sent"
                 recipient.sent_at = datetime.now(timezone.utc)
                 campaign.sent += 1
@@ -257,8 +278,8 @@ def _run_campaign(campaign_id: int, run_id: int, stop_event: threading.Event) ->
             db.commit()
     finally:
         try:
-            if 'connection' in locals():
-                connection.quit()
+            if 'transport' in locals() and hasattr(transport, "quit"):
+                transport.quit()
         except Exception:
             pass
         db.close()
