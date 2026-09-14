@@ -38,17 +38,15 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
             batch = pending[offset:offset + batch_size]
             # inspect_url may start a Playwright browser; avoid exhausting
             # Chromium/process resources on the server.
-            sem = asyncio.Semaphore(4)
+            sem = asyncio.Semaphore(1)
 
             async def process(company: Company):
                 async with sem:
                     try:
-                        contact_result, email_result = await asyncio.gather(
-                            asyncio.wait_for(inspect_url(company.website), timeout=30),
-                            asyncio.wait_for(
-                                asyncio.to_thread(enrich_isolated, company.website, 15, 0.1),
-                                timeout=30,
-                            ),
+                        contact_result = await asyncio.wait_for(inspect_url(company.website), timeout=30)
+                        email_result = await asyncio.wait_for(
+                            asyncio.to_thread(enrich_isolated, company.website, 15, 0.1),
+                            timeout=30,
                         )
                         status = _classify(contact_result)
                         industry = main_industry(
@@ -111,7 +109,7 @@ def create_job(batch_size: int = 100) -> str:
         "last_batch": None,
         "error": None,
     }
-    _tasks[job_id] = asyncio.create_task(run_db_job(job_id, batch_size))
+    _tasks[job_id] = asyncio.create_task(run_db_job(job_id, 1))
     return job_id
 
 

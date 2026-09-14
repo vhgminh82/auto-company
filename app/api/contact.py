@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.contact_forms import detect_captcha_from_page, inspect_url
+from app.playwright_guard import limited_playwright
 
 router = APIRouter(prefix="/api/contact", tags=["contact"])
 
@@ -91,7 +92,7 @@ async def submit_contact(request: SubmitRequest):
     except Exception as exc:
         raise HTTPException(503, f"Bước khởi tạo trình duyệt: {exc}") from exc
 
-    async with async_playwright() as pw:
+    async with limited_playwright() as pw:
         browser = await pw.chromium.launch(headless=True)
         page = await browser.new_page()
         try:
