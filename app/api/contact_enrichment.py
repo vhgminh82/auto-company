@@ -10,6 +10,16 @@ router = APIRouter(prefix="/api/contact-enrichment", tags=["contact-enrichment"]
 _job_id: str | None = None
 
 
+def start_enrichment_job() -> dict:
+    global _job_id
+    if _job_id:
+        existing = get_job(_job_id)
+        if existing and existing.get("status") in {"queued", "running"}:
+            return {"started": False, **_progress()}
+    _job_id = create_job(batch_size=4)
+    return {"started": True, "status": "running", **_progress()}
+
+
 def _remaining() -> int:
     db = SessionLocal()
     try:
@@ -48,14 +58,7 @@ def _progress() -> dict:
 async def start_enrichment(request: Request):
     if not request.session.get("user", {}).get("is_admin"):
         raise HTTPException(403, "Chỉ admin được hoàn thiện data.")
-    global _job_id
-    if _job_id:
-        existing = get_job(_job_id)
-        if existing and existing.get("status") in {"queued", "running"}:
-            return {"started": False, "status": "running", **_progress()}
-    # Keep batches small so the UI receives progress quickly on large datasets.
-    _job_id = create_job(batch_size=4)
-    return {"started": True, "status": "running", **_progress()}
+    return start_enrichment_job()
 
 
 @router.get("/status")

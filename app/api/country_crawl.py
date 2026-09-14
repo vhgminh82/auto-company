@@ -48,9 +48,8 @@ def _progress() -> dict:
         return {"state": "running", "current": 0, "total": 0, "query": "", "found": 0}
 
 
-@router.post("/start")
-def start_crawl(request: Request):
-    if not request.session.get("user", {}).get("is_admin"):
+def start_crawl_job(auto: bool = False, request: Request | None = None):
+    if request is not None and not request.session.get("user", {}).get("is_admin"):
         raise HTTPException(403, "Chỉ admin được tìm doanh nghiệp.")
     global _process
     if os.name == "nt":
@@ -61,6 +60,8 @@ def start_crawl(request: Request):
         command = [sys.executable, str(PYTHON_RUNNER), "--progress", str(PROGRESS_FILE)]
     running_pid = _process.pid if _process and _process.poll() is None else _saved_pid()
     if _pid_running(running_pid):
+        return {"started": False, **_progress()}
+    if auto and _progress().get("state") == "done":
         return {"started": False, **_progress()}
     PROGRESS_FILE.parent.mkdir(parents=True, exist_ok=True)
     PROGRESS_FILE.unlink(missing_ok=True)
@@ -73,6 +74,16 @@ def start_crawl(request: Request):
     )
     PID_FILE.write_text(str(_process.pid), encoding="ascii")
     return {"started": True, "state": "running", "current": 0, "total": 0, "query": "", "found": 0}
+
+
+def country_crawl_running() -> bool:
+    running_pid = _process.pid if _process and _process.poll() is None else _saved_pid()
+    return _pid_running(running_pid)
+
+
+@router.post("/start")
+def start_crawl(request: Request):
+    return start_crawl_job(request=request)
 
 
 @router.post("/stop")

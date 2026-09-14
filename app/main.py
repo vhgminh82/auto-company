@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 import secrets
 import hashlib
+import asyncio
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.companies import router as companies_router
@@ -71,3 +72,9 @@ app.include_router(emkt_router)
 app.include_router(emkt_lists_router)
 app.include_router(emkt_tracking_router)
 app.include_router(auth_router)
+
+
+@app.on_event("startup")
+async def start_background_jobs() -> None:
+    from app.startup_jobs import auto_start_jobs
+    asyncio.create_task(auto_start_jobs())
