@@ -16,7 +16,9 @@ def _remaining() -> int:
         return db.query(Company).filter(
             Company.website != "",
             (Company.email == "") | (Company.email.is_(None)) |
-            (Company.contact == "") | (Company.contact.is_(None)),
+            (Company.contact == "") | (Company.contact.is_(None)) |
+            (Company.country == "") | (Company.country.is_(None)) |
+            (Company.industry == "") | (Company.industry.is_(None)),
         ).count()
     finally:
         db.close()

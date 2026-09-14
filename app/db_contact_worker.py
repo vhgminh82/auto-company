@@ -3,20 +3,36 @@ from __future__ import annotations
 import asyncio
 import uuid
 from typing import Any
+from urllib.parse import urlsplit
 
 from craw_data.craw_company_contacts import email_list, enrich_isolated
+from app.address_parser import parse_address
 from app.contact_forms import inspect_url
 from app.database import SessionLocal
-from app.models.company import Company
 from app.industry_normalizer import main_industry
+from app.models.company import Company
 
 _jobs: dict[str, dict[str, Any]] = {}
 _tasks: dict[str, asyncio.Task] = {}
 
+DOMAIN_COUNTRIES = {
+    ".vn": "Vietnam", ".ca": "Canada", ".au": "Australia", ".nz": "New Zealand",
+    ".jp": "Japan", ".kr": "South Korea", ".in": "India", ".th": "Thailand",
+    ".sg": "Singapore", ".de": "Germany", ".fr": "France", ".uk": "United Kingdom",
+}
+
+
+def _country_from_website(website: str) -> str:
+    host = (urlsplit(website or "").hostname or "").casefold()
+    for suffix, country in DOMAIN_COUNTRIES.items():
+        if host.endswith(suffix):
+            return country
+    return ""
+
 
 def _classify(result: dict) -> str:
     if result.get("error"):
-        return "Lỗi"
+        return "error"
     if any(form.get("has_captcha") for form in result.get("forms", [])):
         return "captcha"
     return "ok"
@@ -28,41 +44,48 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
     try:
         pending = db.query(Company).filter(
             Company.website != "",
-             ((Company.email == "") | (Company.email.is_(None)) |
-             (Company.contact == "") | (Company.contact.is_(None))),
+            ((Company.email == "") | (Company.email.is_(None)) |
+             (Company.contact == "") | (Company.contact.is_(None)) |
+             (Company.country == "") | (Company.country.is_(None)) |
+             (Company.industry == "") | (Company.industry.is_(None))),
         ).all()
         job.update(total=len(pending), status="running", found=0, latest="")
         print(f"[db-contact] job={job_id} pending={len(pending)}", flush=True)
 
         for offset in range(0, len(pending), batch_size):
             batch = pending[offset:offset + batch_size]
-            # inspect_url may start a Playwright browser; avoid exhausting
-            # Chromium/process resources on the server.
             sem = asyncio.Semaphore(4)
 
             async def process(company: Company):
                 async with sem:
                     try:
-                        contact_result = await asyncio.wait_for(inspect_url(company.website), timeout=30)
+                        # Bulk enrichment is HTTP-only; Playwright is reserved for
+                        # interactive contact-form inspection.
+                        contact_result = await asyncio.wait_for(
+                            inspect_url(company.website, allow_browser=False), timeout=20
+                        )
                         email_result = await asyncio.wait_for(
                             asyncio.to_thread(enrich_isolated, company.website, 15, 0.1),
                             timeout=30,
                         )
-                        status = _classify(contact_result)
                         industry = main_industry(
                             f"{company.name} {company.address} {contact_result.get('page_text', '')}"
                         )
-                        return company, status, industry, email_result
+                        country, _, _ = parse_address(company.address, company.country)
+                        country = country or _country_from_website(company.website)
+                        return company, _classify(contact_result), industry, country, email_result
                     except Exception as exc:
                         print(f"[db-contact] id={company.id} error={type(exc).__name__}: {exc}", flush=True)
-                        return company, "Lỗi", "", {"emails": ""}
+                        return company, "error", "", "", {"emails": ""}
 
             results = await asyncio.gather(*(process(company) for company in batch))
-            for company, status, industry, email_result in results:
+            for company, status, industry, country, email_result in results:
                 if not (company.contact or "").strip():
                     company.contact = status
-                if industry and industry != "Khác" and (not company.industry or company.industry == "Khác"):
+                if industry and industry != "Khác" and not (company.industry or "").strip():
                     company.industry = industry
+                if country and not (company.country or "").strip():
+                    company.country = country
 
                 emails = email_list(company.email or "", company.email_2 or "", email_result.get("emails", ""))
                 if not (company.email or "").strip():
@@ -79,8 +102,7 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
             job["last_batch"] = {"count": len(results)}
             print(
                 f"[db-contact] job={job_id} processed={job['processed']}/{job['total']} "
-                f"found={job['found']}",
-                flush=True,
+                f"found={job['found']}", flush=True,
             )
 
         if job.get("status") != "stopped":
@@ -100,14 +122,8 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
 def create_job(batch_size: int = 100) -> str:
     job_id = uuid.uuid4().hex
     _jobs[job_id] = {
-        "job_id": job_id,
-        "status": "queued",
-        "total": 0,
-        "processed": 0,
-        "found": 0,
-        "latest": "",
-        "last_batch": None,
-        "error": None,
+        "job_id": job_id, "status": "queued", "total": 0, "processed": 0,
+        "found": 0, "latest": "", "last_batch": None, "error": None,
     }
     _tasks[job_id] = asyncio.create_task(run_db_job(job_id, min(batch_size, 4)))
     return job_id

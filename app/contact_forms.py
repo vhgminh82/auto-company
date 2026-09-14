@@ -76,15 +76,15 @@ def inspect_html(page_url: str, html: str) -> tuple[list[FormInfo], list[str]]:
     return forms, links[:8]
 
 
-async def inspect_url(url: str) -> dict:
+async def inspect_url(url: str, allow_browser: bool = True) -> dict:
     normalized = url if url.startswith(("http://", "https://")) else f"https://{url}"
     fetch = await HttpFetcher().fetch(normalized)
-    if not fetch:
+    if not fetch and allow_browser:
         fetch = await BrowserFetcher().fetch(normalized)
     if not fetch:
         return {"url": normalized, "forms": [], "contact_pages": [], "error": "Không tải được URL."}
     forms, links = inspect_html(fetch.final_url, fetch.html)
-    if not forms and fetch.fetcher == "http":
+    if allow_browser and not forms and fetch.fetcher == "http":
         browser_fetch = await BrowserFetcher().fetch(normalized)
         if browser_fetch:
             fetch = browser_fetch
@@ -97,7 +97,7 @@ async def inspect_url(url: str) -> dict:
         page = await HttpFetcher().fetch(contact_url)
         if page:
             extra, _ = inspect_html(page.final_url, page.html)
-            if not extra and page.fetcher == "http":
+            if allow_browser and not extra and page.fetcher == "http":
                 browser_page = await BrowserFetcher().fetch(contact_url)
                 if browser_page:
                     page = browser_page
