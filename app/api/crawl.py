@@ -1,4 +1,4 @@
-﻿import json
+import json
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
@@ -28,13 +28,14 @@ def _filter_by_visited(db: Session, rows: list[dict[str, str]]):
     skipped_visited = 0
 
     for row in rows:
-        website = row.get("website", "")
-        if website and is_visited(db, website):
+        website = (row.get("website") or "").strip()
+        if not website:
+            continue
+        if is_visited(db, website):
             skipped_visited += 1
             continue
         filtered_rows.append(row)
-        if website:
-            mark_visited(db, website, status="ok")
+        mark_visited(db, website, status="ok")
 
     return filtered_rows, skipped_visited
 
