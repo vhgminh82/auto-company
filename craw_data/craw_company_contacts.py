@@ -17,6 +17,8 @@ from bs4 import BeautifulSoup
 EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.I)
 SOCIAL_RE = re.compile(r"https?://(?:www\.)?facebook\.com/[^\"'\s<>]+", re.I)
 LINKEDIN_RE = re.compile(r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/(?:company|in|school|show|posts)/[^\"'\s<>?#]+", re.I)
+YOUTUBE_RE = re.compile(r"https?://(?:www\.)?youtube\.com/(?:channel/|c/|user/|@)[^\"'\s<>?#]+", re.I)
+X_RE = re.compile(r"https?://(?:www\.)?(?:x|twitter)\.com/[^\"'\s<>?#]+", re.I)
 CONTACT_WORDS = ("contact", "about", "company", "enquiry", "inquiry", "location")
 UA = "VCMoldContactResearch/1.0 (public business contact lookup)"
 MAX_HTML_BYTES = 300_000
@@ -79,11 +81,25 @@ def enrich(url, timeout=15, delay=0.25):
         if link.startswith("mailto:") or "facebook.com" in link.lower() or "linkedin.com" in link.lower(): continue
         if len(pages) >= 4: break
         if urlsplit(link).hostname == urlsplit(final).hostname and link not in pages: pages.append(link)
-    emails, facebook, linkedin = set(), set(), set()
+    emails, facebook, linkedin, youtube, x_links = set(), set(), set(), set(), set()
+    address = ""
     for index, page in enumerate(pages):
         if index: time.sleep(delay)
         text = BeautifulSoup(html if index == 0 else fetch(page, s, timeout)[0], "html.parser")
         raw = str(text)
+        if not address:
+            for item in text.find_all("script", type="application/ld+json"):
+                try:
+                    payload = json.loads(item.get_text(strip=True))
+                    candidates = payload if isinstance(payload, list) else [payload]
+                    for obj in candidates:
+                        addr = obj.get("address") if isinstance(obj, dict) else None
+                        if isinstance(addr, dict):
+                            address = ", ".join(str(addr.get(key, "")).strip() for key in ("streetAddress", "addressLocality", "addressRegion", "postalCode", "addressCountry") if str(addr.get(key, "")).strip())
+                            if address:
+                                break
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    continue
         for item in EMAIL_RE.findall(raw):
             e = clean_email(item)
             email_host = e.rsplit("@", 1)[-1] if "@" in e else ""
@@ -96,7 +112,11 @@ def enrich(url, timeout=15, delay=0.25):
             item = item.rstrip(".,);]").split("?")[0].rstrip("/")
             if not any(x in item.lower() for x in ("/share", "/feed", "/login", "/jobs", "/learning")):
                 linkedin.add(item)
-    return {"emails": "; ".join(sorted(emails)[:5]), "facebook": "; ".join(sorted(facebook)[:3]), "linkedin": "; ".join(sorted(linkedin)[:3]), "status": "ok"}
+        for item in YOUTUBE_RE.findall(raw):
+            youtube.add(item.rstrip(".,);]"))
+        for item in X_RE.findall(raw):
+            x_links.add(item.rstrip(".,);]"))
+    return {"emails": "; ".join(sorted(emails)[:5]), "facebook": "; ".join(sorted(facebook)[:3]), "linkedin": "; ".join(sorted(linkedin)[:3]), "youtube": "; ".join(sorted(youtube)[:3]), "x": "; ".join(sorted(x_links)[:3]), "address": address, "status": "ok"}
 
 def enrich_isolated(url, timeout=15, delay=0.25):
     """Run one crawl in a killable child process so malformed pages cannot hang the batch."""
@@ -112,7 +132,12 @@ def enrich_isolated(url, timeout=15, delay=0.25):
             return json.loads(stdout.strip().splitlines()[-1])
     except subprocess.TimeoutExpired:
         if proc and proc.poll() is None:
-            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            proc.terminate()
+            try:
+                proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
         return {"emails": "", "facebook": "", "linkedin": "", "status": "timeout"}
     except (OSError, ValueError, json.JSONDecodeError):
         pass

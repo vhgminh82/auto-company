@@ -20,6 +20,10 @@ def _remaining() -> int:
             (Company.country == "") | (Company.country.is_(None)) |
             (Company.industry == "") | (Company.industry.is_(None)) |
             (Company.facebook == "") | (Company.facebook.is_(None)),
+            (Company.youtube == "") | (Company.youtube.is_(None)) |
+            (Company.x == "") | (Company.x.is_(None)) |
+            (Company.linkedin == "") | (Company.linkedin.is_(None)) |
+            (Company.address == "") | (Company.address.is_(None)),
         ).count()
     finally:
         db.close()

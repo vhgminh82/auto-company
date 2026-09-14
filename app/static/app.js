@@ -26,11 +26,12 @@ const INDUSTRY_GROUPS = [['Cơ khí chính xác', ['precision', 'machining', 'ma
 
 const TABLE_COLUMNS = [
   null,
-  'name', 'country', 'address', 'city', 'state', 'website', 'contact', 'email', 'email_2', 'phone',
+  'name', 'industry', 'country', 'address', 'city', 'state', 'website', 'contact', 'email', 'email_2', 'phone',
   'short_description', 'facebook', 'facebook_alt', 'youtube', 'x', 'linkedin',
-  'truth', 'country', 'industry',
+  'truth',
 ];
-const TABLE_EDIT_FIELDS = [null, 'name', 'country', 'address', 'city', 'state', 'website', 'contact', 'email', 'email_2', 'phone', 'short_description', 'facebook', 'facebook_alt', 'youtube', 'x', 'linkedin', 'truth', 'industry'];
+const TABLE_EDIT_FIELDS = [null, 'name', 'industry', 'country', 'address', 'city', 'state', 'website', 'contact', 'email', 'email_2', 'phone', 'short_description', 'facebook', 'facebook_alt', 'youtube', 'x', 'linkedin', 'truth'];
+const TABLE_LABELS = {name: 'Tên cty', industry: 'Ngành', country: 'Quốc gia', address: 'Địa chỉ', city: 'Khu vực', state: 'Bang/Tỉnh', website: 'Website', contact: 'Contact', email: 'Email', email_2: 'Email 2', phone: 'SĐT', short_description: 'Mô tả', facebook: 'FB', facebook_alt: 'FB phụ', youtube: 'Youtube', x: 'X', linkedin: 'LinkedIn', truth: 'Truth'};
 let displayedCompanies = [];
 let tableRows = [];
 let sortColumn = '';
@@ -82,12 +83,35 @@ document.querySelectorAll('.tab-button').forEach((button) => {
 
 async function loadCountrySource() {
   const status = document.getElementById('countrySourceStatus');
+  const fetchJson = async (url) => {
+    const response = await fetch(url);
+    const contentType = response.headers.get('content-type') || '';
+    const body = await response.text();
+    let payload;
+    try {
+      payload = body ? JSON.parse(body) : null;
+    } catch {
+      throw new Error(`${response.status} ${response.statusText}: ${body.slice(0, 120)}`);
+    }
+    if (!response.ok) {
+      throw new Error(`${response.status} ${response.statusText}: ${payload?.detail || body.slice(0, 120)}`);
+    }
+    if (!contentType.includes('application/json')) {
+      throw new Error(`${response.status} ${response.statusText}: Phản hồi không phải JSON.`);
+    }
+    return payload;
+  };
   try {
-    const [rows, keywords, stats] = await Promise.all([
-      (await fetch(`/api/country-source?limit=25000&country=${encodeURIComponent(document.getElementById('countrySourceCountryFilter')?.value || '')}&city=${encodeURIComponent(document.getElementById('countrySourceCityFilter')?.value || '')}&state=${encodeURIComponent(document.getElementById('countrySourceStateFilter')?.value || '')}`)).json(),
-      (await fetch('/api/country-source/keywords')).json(),
-      (await fetch('/api/country-source/stats')).json(),
+    const [rows, keywords] = await Promise.all([
+      fetchJson(`/api/country-source?limit=25000&country=${encodeURIComponent(document.getElementById('countrySourceCountryFilter')?.value || '')}&city=${encodeURIComponent(document.getElementById('countrySourceCityFilter')?.value || '')}&state=${encodeURIComponent(document.getElementById('countrySourceStateFilter')?.value || '')}`),
+      fetchJson('/api/country-source/keywords'),
     ]);
+    let stats = {total_locations: rows.length, pending_locations: 0, pending_combinations: 0};
+    try {
+      stats = await fetchJson('/api/country-source/stats');
+    } catch (error) {
+      console.warn('Không tải được thống kê dữ liệu quốc gia:', error);
+    }
     window.countrySourceRows = rows;
     window.countryKeywords = keywords;
     renderCountrySourceTable();
@@ -648,7 +672,7 @@ function renderCompanies() {
 
   document.querySelectorAll('#companyTable thead th').forEach((th, index) => {
     const key = TABLE_COLUMNS[index];
-    const label = th.dataset.label || th.textContent.replace(/\s+[▲▼]$/, '');
+    const label = TABLE_LABELS[key] || th.dataset.label || th.textContent.replace(/\s+[▲▼]$/, '');
     th.dataset.label = label;
     th.textContent = key && key === sortColumn ? `${label} ${sortDirection === 1 ? '▲' : '▼'}` : label;
     th.setAttribute('aria-sort', key && key === sortColumn ? (sortDirection === 1 ? 'ascending' : 'descending') : 'none');
@@ -672,8 +696,8 @@ function renderVisibleRows() {
     const tr = document.createElement('tr');
     const values = [
       start + index + 1,
-      c.name, c.country, c.address, c.city, c.state, c.website, c.contact, c.email, c.email_2, c.phone, c.short_description,
-      c.facebook, c.facebook_alt, c.youtube, c.x, c.linkedin, c.truth, c.industry,
+      c.name, c.industry, c.country, c.address, c.city, c.state, c.website, c.contact, c.email, c.email_2, c.phone, c.short_description,
+      c.facebook, c.facebook_alt, c.youtube, c.x, c.linkedin, c.truth,
     ];
     values.forEach((v, cellIndex) => {
       const td = document.createElement('td');

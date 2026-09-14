@@ -48,7 +48,11 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
              (Company.contact == "") | (Company.contact.is_(None)) |
              (Company.country == "") | (Company.country.is_(None)) |
              (Company.industry == "") | (Company.industry.is_(None)) |
-             (Company.facebook == "") | (Company.facebook.is_(None))),
+             (Company.facebook == "") | (Company.facebook.is_(None)) |
+             (Company.youtube == "") | (Company.youtube.is_(None)) |
+             (Company.x == "") | (Company.x.is_(None)) |
+             (Company.linkedin == "") | (Company.linkedin.is_(None)) |
+             (Company.address == "") | (Company.address.is_(None))),
         ).all()
         job.update(total=len(pending), status="running", found=0, latest="")
         print(f"[db-contact] job={job_id} pending={len(pending)}", flush=True)
@@ -82,11 +86,13 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
             results = await asyncio.gather(*(process(company) for company in batch))
             for company, status, industry, country, email_result in results:
                 if not (company.contact or "").strip():
-                    company.contact = status
-                if industry and industry != "Khác" and not (company.industry or "").strip():
-                    company.industry = industry
-                if country and not (company.country or "").strip():
-                    company.country = country
+                    company.contact = status if status != "error" else "chưa có"
+                if not (company.industry or "").strip():
+                    company.industry = industry if industry != "Khác" else "chưa có"
+                if not (company.country or "").strip():
+                    company.country = country or "chưa có"
+                if not (company.address or "").strip():
+                    company.address = (email_result.get("address") or "").strip() or "chưa có"
 
                 facebook = (email_result.get("facebook") or "").strip()
                 if facebook and not (company.facebook or "").strip():
@@ -94,6 +100,14 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
                 linkedin = (email_result.get("linkedin") or "").strip()
                 if linkedin and not (company.linkedin or "").strip():
                     company.linkedin = linkedin
+                if not (company.facebook or "").strip():
+                    company.facebook = facebook or "chưa có"
+                if not (company.youtube or "").strip():
+                    company.youtube = (email_result.get("youtube") or "").strip() or "chưa có"
+                if not (company.x or "").strip():
+                    company.x = (email_result.get("x") or "").strip() or "chưa có"
+                if not (company.linkedin or "").strip():
+                    company.linkedin = linkedin or "chưa có"
 
                 emails = email_list(company.email or "", company.email_2 or "", email_result.get("emails", ""))
                 if not (company.email or "").strip():
