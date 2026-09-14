@@ -163,7 +163,7 @@ def contact_runs(db: Session = Depends(get_db)):
 async def _run_contact(run_id: int, company_ids: list[int], fields: dict[str, str]):
     from app.api.contact import submit_contact
     db = SessionLocal(); run = db.get(ContactRun, run_id); run.status = "running"; db.commit()
-    sem = asyncio.Semaphore(1)
+    sem = asyncio.Semaphore(4)
     async def one(company_id):
         async with sem:
             company = db.get(Company, company_id)

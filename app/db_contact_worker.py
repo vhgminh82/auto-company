@@ -38,7 +38,7 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
             batch = pending[offset:offset + batch_size]
             # inspect_url may start a Playwright browser; avoid exhausting
             # Chromium/process resources on the server.
-            sem = asyncio.Semaphore(1)
+            sem = asyncio.Semaphore(4)
 
             async def process(company: Company):
                 async with sem:
@@ -109,7 +109,7 @@ def create_job(batch_size: int = 100) -> str:
         "last_batch": None,
         "error": None,
     }
-    _tasks[job_id] = asyncio.create_task(run_db_job(job_id, 1))
+    _tasks[job_id] = asyncio.create_task(run_db_job(job_id, min(batch_size, 4)))
     return job_id
 
 
