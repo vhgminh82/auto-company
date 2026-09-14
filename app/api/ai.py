@@ -44,6 +44,27 @@ class CampaignGenerateRequest(ContactGenerateRequest):
     account_ids: list[int] = Field(default_factory=list, max_length=100)
 
 
+CNCTECH_CONTACT_DEFAULTS = {
+    "name": "Linh Vu",
+    "email": "contacts@cnctech.vn",
+    "phone": "+84 988506888",
+}
+
+
+def _is_cnctech(payload: ContactGenerateRequest) -> bool:
+    source = f"{payload.reference_website} {payload.description}".casefold()
+    return "cnctech" in source or "cnctech.com.vn" in source
+
+
+def _apply_contact_defaults(result: dict, payload: ContactGenerateRequest) -> dict:
+    if not _is_cnctech(payload):
+        return result
+    for field, value in CNCTECH_CONTACT_DEFAULTS.items():
+        if not str(result.get(field) or "").strip():
+            result[field] = value
+    return result
+
+
 def _admin(request: Request) -> None:
     if not request.session.get("user", {}).get("is_admin"):
         raise HTTPException(403, "Chỉ admin được sử dụng AI.")
@@ -127,12 +148,13 @@ Chỉ trả về JSON object với các key: name, company, email, phone, subjec
 Giá trị không suy ra được để chuỗi rỗng; custom_fields là object. Không bịa email, số điện thoại hay địa chỉ.
 Ngôn ngữ: {payload.language}.
 Mô tả: {payload.description}
-Website tham chiếu: {payload.reference_website or 'không có'}"""
+Website tham chiếu: {payload.reference_website or 'không có'}
+Nếu đây là CNCTech, dùng thông tin liên hệ mặc định: first name Linh, last name Vu, email contacts@cnctech.vn, phone/WhatsApp +84 988506888."""
     try:
         result = await _json_completion([{"role": "system", "content": "Bạn là trợ lý tạo nội dung contact B2B."}, {"role": "user", "content": prompt}], _models(db))
     except OpenRouterError as exc:
         raise HTTPException(503, str(exc)) from exc
-    return {"fields": result}
+    return {"fields": _apply_contact_defaults(result, payload)}
 
 
 @router.post("/campaign-generate")
