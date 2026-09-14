@@ -20,6 +20,8 @@ _jobs: dict[int, dict] = {}
 
 class ScenarioRequest(BaseModel):
     name: str = Field(min_length=1, max_length=255)
+    description: str = Field(default="", max_length=10000)
+    reference_website: str = Field(default="", max_length=2000)
     fields: dict[str, str] = {}
 
 
@@ -35,7 +37,7 @@ class ContactListRequest(BaseModel):
 
 
 def _scenario_out(item):
-    return {"id": item.id, "name": item.name, "fields": item.fields or {}, "created_at": item.created_at, "updated_at": item.updated_at}
+    return {"id": item.id, "name": item.name, "description": item.description or "", "reference_website": item.reference_website or "", "fields": item.fields or {}, "created_at": item.created_at, "updated_at": item.updated_at}
 
 
 @router.get("/scenarios")
@@ -45,7 +47,7 @@ def scenarios(db: Session = Depends(get_db)):
 
 @router.post("/scenarios")
 def create_scenario(request: ScenarioRequest, db: Session = Depends(get_db)):
-    item = ContactScenario(name=request.name.strip(), fields=request.fields)
+    item = ContactScenario(name=request.name.strip(), description=request.description.strip(), reference_website=request.reference_website.strip(), fields=request.fields)
     db.add(item)
     try:
         db.commit(); db.refresh(item)
@@ -58,7 +60,7 @@ def create_scenario(request: ScenarioRequest, db: Session = Depends(get_db)):
 def update_scenario(scenario_id: int, request: ScenarioRequest, db: Session = Depends(get_db)):
     item = db.get(ContactScenario, scenario_id)
     if not item: raise HTTPException(404, "Không tìm thấy kịch bản.")
-    item.name = request.name.strip(); item.fields = request.fields
+    item.name = request.name.strip(); item.description = request.description.strip(); item.reference_website = request.reference_website.strip(); item.fields = request.fields
     db.commit(); db.refresh(item)
     return _scenario_out(item)
 

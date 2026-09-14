@@ -23,6 +23,7 @@ from app.api.sheet_sync import router as sheet_sync_router
 from app.api.emkt import router as emkt_router
 from app.api.emkt_lists import router as emkt_lists_router
 from app.api.emkt_tracking import router as emkt_tracking_router
+from app.api.ai import router as ai_router
 from app.auth import router as auth_router
 from app.middleware import LoginRequiredMiddleware
 from app.database import Base, engine, ensure_schema
@@ -71,6 +72,7 @@ app.include_router(sheet_sync_router)
 app.include_router(emkt_router)
 app.include_router(emkt_lists_router)
 app.include_router(emkt_tracking_router)
+app.include_router(ai_router)
 app.include_router(auth_router)
 
 

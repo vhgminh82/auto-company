@@ -134,6 +134,9 @@ th { position: sticky; top: 0; background: #eaf2fb; }
 .scenario-fields-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .scenario-fields-grid label, #contactScenarioForm > label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
 .scenario-fields-grid textarea { width: 100%; }
+.ai-reference-row, .ai-settings-row { display: flex; align-items: end; gap: 8px; }
+.ai-reference-row label, .ai-settings-row label { flex: 1; }
+.ai-settings-row { margin: 8px 0; }
 #contactScenarioForm small { color: #667789; font-weight: 400; }
 @media (max-width: 600px) { .scenario-fields-grid { grid-template-columns: 1fr; } }
 .confirm input { display: inline; width: auto; margin-right: 6px; }

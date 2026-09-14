@@ -46,6 +46,7 @@ Mở: http://127.0.0.1:8000
 - `POST /api/import` (CSV/XLSX)
 - `GET /api/export/csv`
 - `GET /api/export/xlsx`
+- `POST /api/ai/company-analysis` — phân tích một doanh nghiệp bằng OpenRouter. Body: `{"company_id": 123, "language": "vi"}`.
 - `POST /api/contact/inspect` — nhận URL, tìm form ở trang gốc và các trang Contact cùng domain, phát hiện CAPTCHA.
 - `POST /api/contact/submit` — điền và gửi một form không có CAPTCHA sau khi client xác nhận.
 - `POST /api/contact/sheet/run` — tự đọc tab `company`, xử lý batch tối đa 100 dòng và ghi trạng thái vào cột `Contact`.
@@ -78,6 +79,15 @@ GOOGLE_CLIENT_ID=<google-client-id>
 GOOGLE_CLIENT_SECRET=<google-client-secret>
 MICROSOFT_CLIENT_ID=<entra-application-client-id>
 MICROSOFT_CLIENT_SECRET=<entra-client-secret>
+
+# AI qua OpenRouter
+OPENROUTER_API_KEY=<openrouter-api-key>
+OPENROUTER_MODEL=nvidia/nemotron-3-ultra-550b-a55b
+OPENROUTER_MODEL_FALLBACK_1=poolside/laguna-s-2.1
+OPENROUTER_MODEL_FALLBACK_2=inclusionai/ling-3.0-flash-fin
+OPENROUTER_SITE_URL=https://ten-mien-cua-ban.example
+OPENROUTER_APP_NAME=Company Crawl Platform
+OPENROUTER_MAX_TOKENS=2048
 ```
 
 Đăng ký đúng callback URL tương ứng:

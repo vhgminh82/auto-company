@@ -887,8 +887,9 @@ async function startContactCampaign() {
     }
   }, 1500);
 }
-function openContactScenario(id = null) { contactScenarioEditingId = id; const item = id ? window.contactScenarios.find(x => x.id === id) : null; const form = document.getElementById('contactScenarioForm'); form.reset(); form.elements.name.value = item?.name || ''; document.querySelectorAll('[data-scenario-field]').forEach(input => { input.value = item?.fields?.[input.dataset.scenarioField] || ''; }); const custom = Object.entries(item?.fields || {}).filter(([key]) => !['name','company','email','phone','subject','website','address','message'].includes(key)); form.elements.custom_fields.value = custom.map(([k,v]) => `${k}=${v}`).join('\n'); document.getElementById('contactScenarioModal').hidden = false; }
-async function saveContactScenario(event) { event.preventDefault(); const form = event.target; const fields = Object.fromEntries([...form.querySelectorAll('[data-scenario-field]')].filter(input => input.value.trim()).map(input => [input.dataset.scenarioField, input.value.trim()])); Object.assign(fields, parseScenarioFields(form.elements.custom_fields.value)); const payload = {name: form.elements.name.value.trim(), fields}; const url = contactScenarioEditingId ? `/api/contact-campaign/scenarios/${contactScenarioEditingId}` : '/api/contact-campaign/scenarios'; const response = await fetch(url, {method: contactScenarioEditingId ? 'PUT' : 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); const body = await response.json(); if (!response.ok) { document.getElementById('contactScenarioStatus').textContent = body.detail || 'Không lưu được.'; return; } document.getElementById('contactScenarioModal').hidden = true; await loadContactCampaign(); }
+function openContactScenario(id = null) { contactScenarioEditingId = id; const item = id ? window.contactScenarios.find(x => x.id === id) : null; const form = document.getElementById('contactScenarioForm'); form.reset(); form.elements.name.value = item?.name || ''; form.elements.description.value = item?.description || ''; form.elements.reference_website.value = item?.reference_website || ''; document.querySelectorAll('[data-scenario-field]').forEach(input => { input.value = item?.fields?.[input.dataset.scenarioField] || ''; }); const custom = Object.entries(item?.fields || {}).filter(([key]) => !['name','company','email','phone','subject','website','address','message'].includes(key)); form.elements.custom_fields.value = custom.map(([k,v]) => `${k}=${v}`).join('\n'); document.getElementById('contactScenarioModal').hidden = false; }
+async function generateContactScenarioWithAI() { const form = document.getElementById('contactScenarioForm'); const status = document.getElementById('contactScenarioStatus'); const description = form.elements.description.value.trim(); if (!description) { status.textContent = 'Hãy nhập mô tả cho AI trước.'; return; } const button = document.getElementById('contactScenarioAiBtn'); button.disabled = true; status.textContent = 'AI đang tạo nội dung...'; try { const response = await fetch('/api/ai/contact-generate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({description, reference_website: form.elements.reference_website.value.trim()})}); const body = await response.json(); if (!response.ok) throw new Error(body.detail || 'AI không tạo được nội dung.'); const fields = body.fields || {}; document.querySelectorAll('[data-scenario-field]').forEach(input => { if (fields[input.dataset.scenarioField]) input.value = fields[input.dataset.scenarioField]; }); const custom = fields.custom_fields || {}; form.elements.custom_fields.value = Object.entries(custom).map(([key, value]) => `${key}=${value}`).join('\n'); status.textContent = 'AI đã điền nội dung, hãy kiểm tra trước khi lưu.'; } catch (error) { status.textContent = error.message; } finally { button.disabled = false; } }
+async function saveContactScenario(event) { event.preventDefault(); const form = event.target; const fields = Object.fromEntries([...form.querySelectorAll('[data-scenario-field]')].filter(input => input.value.trim()).map(input => [input.dataset.scenarioField, input.value.trim()])); Object.assign(fields, parseScenarioFields(form.elements.custom_fields.value)); const payload = {name: form.elements.name.value.trim(), description: form.elements.description.value.trim(), reference_website: form.elements.reference_website.value.trim(), fields}; const url = contactScenarioEditingId ? `/api/contact-campaign/scenarios/${contactScenarioEditingId}` : '/api/contact-campaign/scenarios'; const response = await fetch(url, {method: contactScenarioEditingId ? 'PUT' : 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); const body = await response.json(); if (!response.ok) { document.getElementById('contactScenarioStatus').textContent = body.detail || 'Không lưu được.'; return; } document.getElementById('contactScenarioModal').hidden = true; await loadContactCampaign(); }
 
 async function inspectContact() {
   const status = document.getElementById('contactStatus');
@@ -1052,6 +1053,7 @@ document.getElementById("closeContactRunDetailsModal").addEventListener("click",
 document.getElementById("contactHistory").addEventListener("click", event => { const button = event.target.closest("[data-contact-run-details]"); if (button) showContactRunDetails(Number(button.dataset.contactRunDetails)); });
 document.getElementById('closeContactScenarioModal').addEventListener('click', () => { document.getElementById('contactScenarioModal').hidden = true; });
 document.getElementById('contactScenarioForm').addEventListener('submit', saveContactScenario);
+document.getElementById('contactScenarioAiBtn').addEventListener('click', generateContactScenarioWithAI);
 document.querySelectorAll('[data-contact-panel]').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('[data-contact-panel]').forEach(x => x.classList.toggle('active', x === button)); document.querySelectorAll('.contact-subpanel').forEach(x => { x.hidden = x.id !== `contact${button.dataset.contactPanel[0].toUpperCase()}${button.dataset.contactPanel.slice(1)}Panel`; }); if (button.dataset.contactPanel === 'history') loadContactCampaign(); }));
 document.getElementById('contactScenarios').addEventListener('click', async event => { const edit = event.target.closest('[data-contact-scenario-edit]'); const del = event.target.closest('[data-contact-scenario-delete]'); if (edit) openContactScenario(Number(edit.dataset.contactScenarioEdit)); if (del && confirm('Xóa kịch bản này?')) { await fetch(`/api/contact-campaign/scenarios/${del.dataset.contactScenarioDelete}`, {method:'DELETE'}); await loadContactCampaign(); } });
 document.getElementById('runSheetBtn').addEventListener('click', runSheetJob);
@@ -1144,12 +1146,41 @@ async function initAuthAndSettings() {
   const settingsBtn = document.getElementById('settingsBtn');
   document.querySelector('.auth-bar')?.prepend(settingsBtn);
   settingsBtn.hidden = false;
+  const aiForm = document.getElementById('aiSettingsForm');
+  const aiStatus = document.getElementById('aiSettingsStatus');
+  const loadAISettings = async () => {
+    const response = await fetch('/api/ai/settings');
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || 'Không tải được cài đặt AI.');
+    aiForm.elements.primary_model.value = data.primary_model || '';
+    aiForm.elements.fallback_model_1.value = data.fallback_model_1 || '';
+    aiForm.elements.fallback_model_2.value = data.fallback_model_2 || '';
+    aiForm.elements.primary_model.placeholder = data.defaults.primary_model;
+    aiForm.elements.fallback_model_1.placeholder = data.defaults.fallback_model_1;
+    aiForm.elements.fallback_model_2.placeholder = data.defaults.fallback_model_2;
+    aiStatus.textContent = data.has_api_key ? '' : 'Chưa có OPENROUTER_API_KEY trên server.';
+  };
   settingsBtn.addEventListener('click', async () => {
     document.getElementById('settingsModal').hidden = false;
+    try { await loadAISettings(); } catch (error) { aiStatus.textContent = error.message; }
     const target = document.getElementById('pendingUsers');
     const users = await (await fetch('/api/auth/users')).json();
     target.innerHTML = users.length ? `<table class="campaign-table"><thead><tr><th>Email</th><th>Tên</th><th>Trạng thái</th><th></th></tr></thead><tbody>${users.map(x => `<tr><td>${emktEscape(x.email)}</td><td>${emktEscape(x.name || '')}</td><td>${x.status}</td><td><span class="settings-user-actions">${x.status === 'pending' ? `<button type="button" data-approve-user="${x.id}">Duyệt</button><button type="button" class="danger-button" data-reject-user="${x.id}">Từ chối</button>` : ''}</span></td></tr>`).join('')}</tbody></table>` : '<p>Chưa có tài khoản.</p>';
   });
+  aiForm.addEventListener('submit', async (event) => {
+    event.preventDefault(); aiStatus.textContent = 'Đang lưu...';
+    const response = await fetch('/api/ai/settings', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(Object.fromEntries(new FormData(aiForm)))});
+    const body = await response.json(); aiStatus.textContent = response.ok ? 'Đã lưu model AI.' : (body.detail || 'Không lưu được model.');
+    if (response.ok) await loadAISettings();
+  });
+  aiForm.querySelectorAll('[data-ai-test]').forEach((button) => button.addEventListener('click', async () => {
+    const field = aiForm.elements[button.dataset.aiTest];
+    const model = field.value.trim() || field.placeholder;
+    const status = document.getElementById('aiTestStatus');
+    if (!model) { status.textContent = 'Chưa có model để test.'; return; }
+    button.disabled = true; status.textContent = `Đang test ${model}...`;
+    try { const response = await fetch('/api/ai/test', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({model})}); const body = await response.json(); status.textContent = response.ok ? `${model}: OK (${body.response})` : (body.detail || 'Test thất bại.'); } catch (error) { status.textContent = error.message; } finally { button.disabled = false; }
+  }));
   document.getElementById('closeSettingsModal').addEventListener('click', () => { document.getElementById('settingsModal').hidden = true; });
   document.getElementById('pendingUsers').addEventListener('click', async (event) => {
     const button = event.target.closest('[data-approve-user], [data-reject-user]');

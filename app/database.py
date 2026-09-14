@@ -47,6 +47,13 @@ def ensure_schema():
             if name not in existing:
                 connection.execute(text(f"ALTER TABLE companies ADD COLUMN {name} {definition}"))
 
+    scenario_columns = {column["name"] for column in inspect(engine).get_columns("contact_scenarios")}
+    with engine.begin() as connection:
+        if "description" not in scenario_columns:
+            connection.execute(text("ALTER TABLE contact_scenarios ADD COLUMN description TEXT NOT NULL DEFAULT ''"))
+        if "reference_website" not in scenario_columns:
+            connection.execute(text("ALTER TABLE contact_scenarios ADD COLUMN reference_website VARCHAR(2000) NOT NULL DEFAULT ''"))
+
     check_constraints = {item.get("name") for item in inspect(engine).get_check_constraints("companies")}
     with engine.begin() as connection:
         if "companies_website_required" not in check_constraints:

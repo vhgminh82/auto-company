@@ -121,6 +121,8 @@ class ContactScenario(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_email: Mapped[str] = mapped_column(String(320), nullable=False, default="", index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    reference_website: Mapped[str] = mapped_column(String(2000), nullable=False, default="")
     fields: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
