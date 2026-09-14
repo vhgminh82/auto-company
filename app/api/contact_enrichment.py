@@ -18,7 +18,8 @@ def _remaining() -> int:
             (Company.email == "") | (Company.email.is_(None)) |
             (Company.contact == "") | (Company.contact.is_(None)) |
             (Company.country == "") | (Company.country.is_(None)) |
-            (Company.industry == "") | (Company.industry.is_(None)),
+            (Company.industry == "") | (Company.industry.is_(None)) |
+            (Company.facebook == "") | (Company.facebook.is_(None)),
         ).count()
     finally:
         db.close()

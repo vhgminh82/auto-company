@@ -47,7 +47,8 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
             ((Company.email == "") | (Company.email.is_(None)) |
              (Company.contact == "") | (Company.contact.is_(None)) |
              (Company.country == "") | (Company.country.is_(None)) |
-             (Company.industry == "") | (Company.industry.is_(None))),
+             (Company.industry == "") | (Company.industry.is_(None)) |
+             (Company.facebook == "") | (Company.facebook.is_(None))),
         ).all()
         job.update(total=len(pending), status="running", found=0, latest="")
         print(f"[db-contact] job={job_id} pending={len(pending)}", flush=True)
@@ -86,6 +87,13 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
                     company.industry = industry
                 if country and not (company.country or "").strip():
                     company.country = country
+
+                facebook = (email_result.get("facebook") or "").strip()
+                if facebook and not (company.facebook or "").strip():
+                    company.facebook = facebook
+                linkedin = (email_result.get("linkedin") or "").strip()
+                if linkedin and not (company.linkedin or "").strip():
+                    company.linkedin = linkedin
 
                 emails = email_list(company.email or "", company.email_2 or "", email_result.get("emails", ""))
                 if not (company.email or "").strip():
