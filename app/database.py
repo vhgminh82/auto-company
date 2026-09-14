@@ -47,6 +47,16 @@ def ensure_schema():
             if name not in existing:
                 connection.execute(text(f"ALTER TABLE companies ADD COLUMN {name} {definition}"))
 
+    check_constraints = {item.get("name") for item in inspect(engine).get_check_constraints("companies")}
+    with engine.begin() as connection:
+        if "companies_website_required" not in check_constraints:
+            connection.execute(
+                text(
+                    "ALTER TABLE companies ADD CONSTRAINT companies_website_required "
+                    "CHECK (website IS NOT NULL AND length(trim(website)) > 0)"
+                )
+            )
+
     keyword_columns = {column["name"] for column in inspect(engine).get_columns("country_keywords")}
     with engine.begin() as connection:
         if "group_position" not in keyword_columns:
