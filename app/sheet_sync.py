@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.database import SessionLocal
 from app.address_parser import split_address
+from app.core.url_utils import is_blocked_url, normalize_url_for_index
 from app.models.company import Company
 from app.models.crawl_visited import CrawlVisited
 from app.sheet_contact_worker import _client, _spreadsheet_id
@@ -37,6 +38,9 @@ def sync_company_sheet(spreadsheet_url: str, sheet_name: str = "company") -> dic
         if key in seen:
             continue
         seen.add(key)
+        website = normalize_url_for_index(website)
+        if is_blocked_url(website):
+            continue
         address = get(row, "địa chỉ")
         city, state = split_address(address, get(row, "quốc gia"))
         records.append({

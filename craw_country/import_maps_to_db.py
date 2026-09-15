@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.legacy_db import connect_supabase
+from app.core.url_utils import is_blocked_url, normalize_url_for_index
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -17,15 +18,7 @@ SKIP_HOSTS = ("facebook.com", "instagram.com", "linkedin.com", "yelp.com", "yell
 
 
 def root_url(value: str) -> str:
-    value = (value or "").strip()
-    if not value:
-        return ""
-    if not re.match(r"^https?://", value, re.I):
-        value = "https://" + value
-    host = (urlsplit(value).hostname or "").lower()
-    if host.startswith("www."):
-        host = host[4:]
-    return f"https://{host}/" if host else ""
+    return normalize_url_for_index(value)
 
 
 def country_from_row(row: dict[str, str]) -> str:
@@ -41,7 +34,7 @@ def candidates(csv_file: Path):
     with csv_file.open(encoding="utf-8-sig", newline="", errors="replace") as handle:
         for raw in csv.DictReader(handle):
             website = root_url(raw.get("website", ""))
-            if not website or any(host in website for host in SKIP_HOSTS):
+            if not website or is_blocked_url(website) or any(host in website for host in SKIP_HOSTS):
                 continue
             yield {
                 "name": (raw.get("title") or "").strip(),

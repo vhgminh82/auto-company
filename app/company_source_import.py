@@ -4,6 +4,7 @@ import re
 from urllib.parse import urlsplit
 
 from app.address_parser import split_address
+from app.core.url_utils import is_blocked_url, normalize_url_for_index
 from app.database import SessionLocal
 from app.models.company import Company
 from app.sheet_contact_worker import _client, _spreadsheet_id
@@ -14,14 +15,7 @@ SOURCE_TABS = {"Canada": "Canada", "Trung đông": "Trung Đông", "USA": "Hoa K
 
 def _root_url(value: str) -> str:
     value = str(value or "").strip()
-    if not value or value.startswith("/"):
-        return ""
-    if not re.match(r"^https?://", value, re.I):
-        value = "https://" + value
-    host = (urlsplit(value).hostname or "").lower()
-    if host.startswith("www."):
-        host = host[4:]
-    return f"https://{host}/" if host else ""
+    return "" if not value or value.startswith("/") else normalize_url_for_index(value)
 
 
 def _read_tab(service, spreadsheet_id: str, tab: str, max_rows: int) -> list[list[str]]:
@@ -55,7 +49,7 @@ def _record(tab: str, headers: list[str], row: list[str], default_country: str, 
         industry, facebook = "", ""
         description = values.get("nhóm mặt hàng nhập khẩu chính & ghi chú", "")
     website = _root_url(website)
-    if not name and not website:
+    if is_blocked_url(website) or (not name and not website):
         return None
     city, state = split_address(address, default_country)
     return {
