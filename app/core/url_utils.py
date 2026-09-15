@@ -1,13 +1,19 @@
 ﻿from urllib.parse import urlparse
 
+BLOCKED_URL_TERMS = ("google", "amazon", "survey", "yahoo", "baidu", "wiki", "search")
+
+
+def is_blocked_url(url: str) -> bool:
+    value = (url or "").lower()
+    return any(term in value for term in BLOCKED_URL_TERMS)
+
 
 def normalize_url_for_index(url: str) -> str:
     if not url:
         return ""
-    parsed = urlparse(url if url.startswith(("http://", "https://")) else f"https://{url}")
-    scheme = (parsed.scheme or "https").lower()
-    host = (parsed.netloc or "").lower().strip()
+    value = url.strip()
+    parsed = urlparse(value if value.lower().startswith(("http://", "https://")) else f"https://{value}")
+    host = (parsed.hostname or "").lower().strip()
     if host.startswith("www."):
         host = host[4:]
-    path = (parsed.path or "/").rstrip("/") or "/"
-    return f"{scheme}://{host}{path}"
+    return f"https://{host}/" if host else ""

@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 from craw_data.craw_company_contacts import email_list, enrich_isolated
 from app.address_parser import parse_address
 from app.contact_forms import inspect_url
+from app.core.url_utils import is_blocked_url
 from app.database import SessionLocal
 from app.industry_normalizer import main_industry
 from app.models.company import Company
@@ -42,7 +43,7 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
     job = _jobs[job_id]
     db = SessionLocal()
     try:
-        pending = db.query(Company).filter(
+        pending = db.query(Company.id).filter(
             Company.website != "",
             ((Company.email == "") | (Company.email.is_(None)) |
              (Company.contact == "") | (Company.contact.is_(None)) |
@@ -54,14 +55,24 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
              (Company.linkedin == "") | (Company.linkedin.is_(None)) |
              (Company.address == "") | (Company.address.is_(None))),
         ).all()
-        job.update(total=len(pending), status="running", found=0, latest="")
-        print(f"[db-contact] job={job_id} pending={len(pending)}", flush=True)
+        pending_ids = [company_id for (company_id,) in pending]
+        pending_ids = [
+            company_id
+            for company_id in pending_ids
+            if (company := db.get(Company, company_id)) is not None
+            and not is_blocked_url(company.website)
+        ]
+        job.update(total=len(pending_ids), status="running", found=0, latest="")
+        print(f"[db-contact] job={job_id} pending={len(pending_ids)}", flush=True)
 
-        for offset in range(0, len(pending), batch_size):
-            batch = pending[offset:offset + batch_size]
+        for offset in range(0, len(pending_ids), batch_size):
+            batch = pending_ids[offset:offset + batch_size]
             sem = asyncio.Semaphore(4)
 
-            async def process(company: Company):
+            async def process(company_id: int):
+                company = db.get(Company, company_id)
+                if company is None or is_blocked_url(company.website):
+                    return company_id, None
                 async with sem:
                     try:
                         # Bulk enrichment is HTTP-only; Playwright is reserved for
@@ -78,13 +89,16 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
                         )
                         country, _, _ = parse_address(company.address, company.country)
                         country = country or _country_from_website(company.website)
-                        return company, _classify(contact_result), industry, country, email_result
+                        return company_id, _classify(contact_result), industry, country, email_result
                     except Exception as exc:
-                        print(f"[db-contact] id={company.id} error={type(exc).__name__}: {exc}", flush=True)
-                        return company, "error", "", "", {"emails": ""}
+                        print(f"[db-contact] id={company_id} error={type(exc).__name__}: {exc}", flush=True)
+                        return company_id, "error", "", "", {"emails": ""}
 
             results = await asyncio.gather(*(process(company) for company in batch))
-            for company, status, industry, country, email_result in results:
+            for company_id, status, industry, country, email_result in results:
+                company = db.get(Company, company_id)
+                if company is None or status is None or is_blocked_url(company.website):
+                    continue
                 if not (company.contact or "").strip():
                     company.contact = status if status != "error" else "chưa có"
                 if not (company.industry or "").strip():

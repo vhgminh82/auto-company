@@ -68,17 +68,23 @@ function setOptions(selectEl, values, placeholder) {
 }
 
 function initTabs() {
-document.querySelectorAll('.tab-button').forEach((button) => {
-    button.addEventListener('click', () => {
-      document.querySelectorAll('.tab-button').forEach((item) => item.classList.toggle('active', item === button));
-      document.querySelectorAll('.tab-content').forEach((panel) => { panel.hidden = panel.id !== button.dataset.tab; });
-      if (button.dataset.tab === 'emktTab') {
-        Promise.all([loadEmktAccounts(), loadEmktList()]).then(() => renderCampaignListOptions()).catch((error) => {
-          document.getElementById('emktAccountStatus').textContent = `eMKT lỗi tải tài khoản/list: ${error.message}`;
-        });
-      }
-    });
-  });
+  const storageKey = 'companyCrawl.activeTab';
+  const buttons = [...document.querySelectorAll('.tab-button')];
+
+  const activateTab = (button) => {
+    buttons.forEach((item) => item.classList.toggle('active', item === button));
+    document.querySelectorAll('.tab-content').forEach((panel) => { panel.hidden = panel.id !== button.dataset.tab; });
+    localStorage.setItem(storageKey, button.dataset.tab);
+    if (button.dataset.tab === 'emktTab') {
+      Promise.all([loadEmktAccounts(), loadEmktList()]).then(() => renderCampaignListOptions()).catch((error) => {
+        document.getElementById('emktAccountStatus').textContent = `eMKT lỗi tải tài khoản/list: ${error.message}`;
+      });
+    }
+  };
+
+  buttons.forEach((button) => button.addEventListener('click', () => activateTab(button)));
+  const savedTab = localStorage.getItem(storageKey);
+  activateTab(buttons.find((button) => button.dataset.tab === savedTab) || buttons[0]);
 }
 
 async function loadCountrySource() {
@@ -753,6 +759,7 @@ async function runCrawl() {
   const body = {
     query: document.getElementById('query').value,
     country: document.getElementById('country').value,
+    region: document.getElementById('region')?.value || '',
     industry: document.getElementById('industry').value,
     max_companies: Number(document.getElementById('max_companies').value || -1),
   };

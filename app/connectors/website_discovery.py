@@ -6,6 +6,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from app.connectors.base import BaseConnector
+from app.core.url_utils import is_blocked_url, normalize_url_for_index
 from app.fetchers.fallback_fetcher import FallbackFetcher
 from app.pipeline.types import CrawlContext
 
@@ -20,13 +21,46 @@ SOCIAL_KEYS = {
     "truth": ["truthsocial.com"],
 }
 
+INTERMEDIARY_DOMAINS = {
+    "10times.com", "alibaba.com", "amazon.com", "bing.com", "crunchbase.com", "dnb.com",
+    "eventseye.com", "facebook.com", "github.com", "glassdoor.com", "google.com",
+    "indeed.com", "instagram.com", "linkedin.com", "mapquest.com", "pinterest.com",
+    "reddit.com", "surveymonkey.com", "tradefairdates.com", "tripadvisor.com", "trustradius.com",
+    "twitter.com", "wikipedia.org", "yellowpages.com", "yelp.com", "youtube.com",
+}
+
+RELEVANCE_STOP_WORDS = {
+    "a", "an", "and", "at", "company", "companies", "com", "for", "in", "of", "the", "to",
+}
+
 
 def _normalize_url(url: str) -> str:
     if not url:
         return ""
-    if url.startswith("http://") or url.startswith("https://"):
-        return url
-    return f"https://{url}"
+    value = url.strip()
+    if value.lower().startswith(("http://", "https://")):
+        return value
+    return f"https://{value}"
+
+
+def _is_intermediary_url(url: str) -> bool:
+    if is_blocked_url(url):
+        return True
+    host = (urlparse(url).hostname or "").lower().removeprefix("www.")
+    return any(host == domain or host.endswith(f".{domain}") for domain in INTERMEDIARY_DOMAINS)
+
+
+def _relevance_terms(context: CrawlContext) -> set[str]:
+    raw = " ".join([context.query, context.industry, context.region, context.country])
+    return {term for term in re.findall(r"[a-z0-9]+", raw.lower()) if len(term) > 2 and term not in RELEVANCE_STOP_WORDS}
+
+
+def _is_relevant_page(text: str, title: str, meta_desc: str, context: CrawlContext) -> bool:
+    terms = _relevance_terms(context)
+    if not terms:
+        return True
+    searchable = f"{title} {meta_desc} {text[:5000]}".lower()
+    return any(term in searchable for term in terms)
 
 
 def _extract_text_and_links(html: str):
@@ -108,6 +142,8 @@ async def _extract_company_from_website(
     context: CrawlContext,
     fetcher: FallbackFetcher,
 ) -> dict[str, str] | None:
+    if _is_intermediary_url(website_url):
+        return None
     result = await fetcher.fetch(_normalize_url(website_url))
     if result is None:
         return None
@@ -122,7 +158,7 @@ async def _extract_company_from_website(
     if soup.title and soup.title.string:
         title = soup.title.string.strip()
 
-    if not title:
+    if not title or not _is_relevant_page(text, title, meta_desc, context):
         return None
 
     return {
@@ -130,7 +166,7 @@ async def _extract_company_from_website(
         "address": "",
         "city": "",
         "state": "",
-        "website": result.final_url,
+        "website": normalize_url_for_index(result.final_url or website_url),
         "email": emails[0] if emails else "",
         "phone": phones[0] if phones else "",
         "short_description": meta_desc or text[:400],
@@ -161,9 +197,10 @@ class WebsiteDiscoveryConnector(BaseConnector):
         companies: list[dict[str, str]] = []
         seen_sites: set[str] = set()
         for site in websites:
-            if site in seen_sites:
+            site_key = normalize_url_for_index(site)
+            if not site_key or _is_intermediary_url(site_key) or site_key in seen_sites:
                 continue
-            seen_sites.add(site)
+            seen_sites.add(site_key)
             row = await _extract_company_from_website(site, context=context, fetcher=self.fetcher)
             if not row:
                 continue

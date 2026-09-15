@@ -1,6 +1,8 @@
 ﻿import re
 from urllib.parse import urlparse
 
+from app.core.url_utils import normalize_url_for_index
+
 LEGAL_SUFFIXES = [
     " co ltd", " ltd", " llc", " inc", " corp", " corporation", " company", " jsc", " plc",
 ]
@@ -11,13 +13,8 @@ def normalize_text(value: str) -> str:
 
 
 def normalize_domain(url: str) -> str:
-    if not url:
-        return ""
-    parsed = urlparse(url if url.startswith(("http://", "https://")) else f"https://{url}")
-    host = (parsed.netloc or "").lower().strip()
-    if host.startswith("www."):
-        host = host[4:]
-    return host
+    normalized = normalize_url_for_index(url)
+    return urlparse(normalized).hostname or ""
 
 
 def normalize_company_name(name: str) -> str:
@@ -47,7 +44,7 @@ def normalize_record(record: dict[str, str]) -> dict[str, str]:
     normalized["country"] = normalize_text(record.get("country", ""))
     normalized["region"] = normalize_text(record.get("region", ""))
     normalized["industry"] = normalize_text(record.get("industry", ""))
-    normalized["website"] = normalize_text(record.get("website", ""))
+    normalized["website"] = normalize_url_for_index(record.get("website", ""))
     normalized["email"] = normalize_text(record.get("email", "")).lower()
     normalized["phone"] = normalize_phone(record.get("phone", ""))
     normalized["_name_norm"] = normalize_company_name(record.get("name", ""))

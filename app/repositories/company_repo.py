@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.constants import COMPANY_EXPORT_COLUMNS
+from app.core.url_utils import is_blocked_url, normalize_url_for_index
 from app.models.company import Company
 
 
@@ -14,7 +15,7 @@ def _to_company_payload(record: dict[str, Any]) -> dict[str, str]:
         "address": str(record.get("address", ""))[:512],
         "city": str(record.get("city", ""))[:128],
         "state": str(record.get("state", ""))[:128],
-        "website": str(record.get("website", ""))[:512],
+        "website": normalize_url_for_index(str(record.get("website", "")))[:512],
         "contact": str(record.get("contact", ""))[:64],
         "email": str(record.get("email", ""))[:255],
         "email_2": str(record.get("email_2", ""))[:255],
@@ -35,6 +36,8 @@ def _to_company_payload(record: dict[str, Any]) -> dict[str, str]:
 def insert_many_ignore_duplicates(db: Session, records: list[dict[str, Any]]) -> int:
     inserted = 0
     for record in records:
+        if is_blocked_url(record.get("website", "")):
+            continue
         company = Company(**_to_company_payload(record))
         db.add(company)
         try:

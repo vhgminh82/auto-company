@@ -1,4 +1,5 @@
 ﻿from app.connectors.registry import get_default_connectors
+from app.core.url_utils import is_blocked_url
 from app.pipeline.processors.deduper import dedupe_records
 from app.pipeline.processors.merger import merge_group
 from app.pipeline.processors.normalizer import normalize_record
@@ -23,7 +24,12 @@ class CrawlOrchestrator:
                 "last_batch": len(rows),
             }
 
-        normalized = [normalize_record(record) for record in collected if (record.get("name", "") or "").strip()]
+        normalized = [
+            normalize_record(record)
+            for record in collected
+            if (record.get("name", "") or "").strip()
+            and not is_blocked_url(record.get("website", ""))
+        ]
         yield {"stage": "normalize", "collected": len(collected), "normalized": len(normalized)}
 
         grouped = dedupe_records(normalized)
