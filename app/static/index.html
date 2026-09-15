@@ -72,7 +72,8 @@
           <input name="subject" placeholder="Tiêu đề email (hỗ trợ {{company_name}})" required />
           <label class="schedule-field">Lịch gửi (để trống nếu gửi thủ công)<input name="scheduled_at" type="datetime-local" /></label>
         </div>
-        <label>Mô tả cho AI<textarea name="ai_description" rows="3" placeholder="Ví dụ: Mời nhà máy dùng dịch vụ của chúng ta..."></textarea></label>
+          <label>Mô tả cho AI<textarea name="ai_description" rows="3" placeholder="Ví dụ: Mời nhà máy dùng dịch vụ của chúng ta..."></textarea></label>
+        <label>Tần suất gửi (mail/giây)<input name="send_rate" type="number" min="0.01" max="100" step="0.01" value="8.33" /><small>Ví dụ: 1 = 1 mail/giây; 0.2 = 1 mail mỗi 5 giây.</small></label>
         <div class="ai-reference-row"><label>Website tham chiếu (tùy chọn)<input name="ai_reference_website" type="url" placeholder="https://example.com" /></label><button id="campaignAiBtn" type="button">AI generate</button></div>
         <fieldset class="campaign-list-picker"><legend>Chọn list gửi đến</legend><div id="emktCampaignListOptions" class="campaign-list-options"><span>Đang tải list...</span></div></fieldset>
         <label>Nội dung HTML (có thể dùng {{company_name}}, {{website}})<textarea name="html_body" rows="8" placeholder="<h1>Xin chào {{company_name}}</h1>"></textarea></label>

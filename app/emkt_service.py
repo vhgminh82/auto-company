@@ -271,7 +271,7 @@ def _run_campaign(campaign_id: int, run_id: int, stop_event: threading.Event) ->
                 campaign.failed += 1
                 if run: run.failed += 1
             db.commit()
-            time.sleep(0.12)
+            time.sleep(1 / max(float(campaign.send_rate or 8.33), 0.01))
         campaign.status = "completed"
         if run: run.status = "completed"; run.completed_at = datetime.now(timezone.utc)
         campaign.completed_at = datetime.now(timezone.utc)

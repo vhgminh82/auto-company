@@ -46,6 +46,7 @@ class CampaignRequest(BaseModel):
     query_filter: str = Field(default="", max_length=255)
     list_ids: list[int] = Field(default_factory=list, max_length=500)
     recipient_limit: int = Field(default=500, ge=1, le=50_000)
+    send_rate: float = Field(default=8.33, ge=0.01, le=100)
     scheduled_at: str | None = None
 
 
@@ -118,6 +119,7 @@ def campaign_out(item: EmktCampaign, db: Session | None = None) -> dict:
         "list_ids": list_ids,
         "scheduled_at": item.scheduled_at,
         "recipient_limit": item.recipient_limit, "status": item.status, "total": item.total,
+        "send_rate": item.send_rate,
         "sent": item.sent, "failed": item.failed, "pending": max(0, item.total - item.sent - item.failed),
         "created_at": item.created_at,
         "started_at": item.started_at, "completed_at": item.completed_at,

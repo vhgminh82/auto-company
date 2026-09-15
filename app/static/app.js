@@ -323,6 +323,7 @@ async function editEmktCampaign(campaignId) {
   form.elements.account_id.value = campaign.account_id || '';
   form.elements.subject.value = campaign.subject || '';
   form.elements.scheduled_at.value = campaign.scheduled_at ? new Date(campaign.scheduled_at).toISOString().slice(0, 16) : '';
+  form.elements.send_rate.value = campaign.send_rate || 8.33;
   form.elements.html_body.value = campaign.html_body || '';
   form.elements.text_body.value = campaign.text_body || '';
   form.querySelectorAll('input[name="list_ids"]').forEach((input) => { input.checked = (campaign.list_ids || []).includes(Number(input.value)); });
@@ -507,7 +508,7 @@ document.getElementById('emktCampaignForm').addEventListener('submit', async (ev
   const values = Object.fromEntries(new FormData(event.target));
   values.list_ids = [...event.target.querySelectorAll('input[name="list_ids"]:checked')].map((input) => Number(input.value));
   if (!values.list_ids.length) { status.textContent = 'Hãy chọn ít nhất một list.'; return; }
-  values.account_id = Number(values.account_id); values.recipient_limit = 50000;
+  values.account_id = Number(values.account_id); values.recipient_limit = 50000; values.send_rate = Number(values.send_rate || 8.33);
   const editId = event.target.dataset.editId;
   const response = await fetch(editId ? `/api/emkt/campaigns/${editId}` : '/api/emkt/campaigns', {method: editId ? 'PUT' : 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(values)}); const body = await response.json();
   status.textContent = response.ok ? `Đã lưu chiến dịch #${body.id}.` : (body.detail || 'Không lưu được chiến dịch.');

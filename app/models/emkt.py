@@ -1,4 +1,4 @@
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 from sqlalchemy import JSON
@@ -71,6 +71,7 @@ class EmktCampaign(Base):
     query_filter: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     list_ids: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     recipient_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=500)
+    send_rate: Mapped[float] = mapped_column(Float, nullable=False, default=8.33)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft", index=True)
     total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     sent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

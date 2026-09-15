@@ -108,6 +108,8 @@ def ensure_schema():
 
     campaign_columns = {column["name"] for column in inspect(engine).get_columns("emkt_campaigns")}
     with engine.begin() as connection:
+        if "send_rate" not in campaign_columns:
+            connection.execute(text("ALTER TABLE emkt_campaigns ADD COLUMN send_rate DOUBLE PRECISION NOT NULL DEFAULT 8.33"))
         if "list_ids" not in campaign_columns:
             connection.execute(text("ALTER TABLE emkt_campaigns ADD COLUMN list_ids TEXT NOT NULL DEFAULT '[]'"))
         if "scheduled_at" not in campaign_columns:
