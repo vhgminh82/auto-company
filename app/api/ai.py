@@ -28,6 +28,7 @@ class AISettingsRequest(BaseModel):
     primary_model: str = Field(default="", max_length=255)
     fallback_model_1: str = Field(default="", max_length=255)
     fallback_model_2: str = Field(default="", max_length=255)
+    custom_prompt: str = Field(default="", max_length=20000)
 
 
 class AITestRequest(BaseModel):
@@ -90,6 +91,13 @@ def _models(db: Session) -> list[str]:
     ]))
 
 
+def _system_prompt(base: str, db: Session) -> str:
+    custom_prompt = (_settings(db).custom_prompt or "").strip()
+    if not custom_prompt:
+        return base
+    return f"{base}\n\nHướng dẫn bổ sung của quản trị viên:\n{custom_prompt}"
+
+
 async def _json_completion(messages: list[dict[str, str]], models: list[str]) -> dict:
     errors = []
     for model in models:
@@ -111,6 +119,7 @@ def get_ai_settings(request: Request, db: Session = Depends(get_db)):
         "primary_model": item.primary_model,
         "fallback_model_1": item.fallback_model_1,
         "fallback_model_2": item.fallback_model_2,
+        "custom_prompt": item.custom_prompt,
         "defaults": {"primary_model": defaults[0], "fallback_model_1": defaults[1], "fallback_model_2": defaults[2]},
         "configured_models": _models(db),
         "has_api_key": bool(os.getenv("OPENROUTER_API_KEY", "").strip()),
@@ -124,6 +133,7 @@ def save_ai_settings(payload: AISettingsRequest, request: Request, db: Session =
     item.primary_model = payload.primary_model.strip()
     item.fallback_model_1 = payload.fallback_model_1.strip()
     item.fallback_model_2 = payload.fallback_model_2.strip()
+    item.custom_prompt = payload.custom_prompt.strip()
     db.commit()
     return get_ai_settings(request, db)
 
@@ -151,7 +161,7 @@ Mô tả: {payload.description}
 Website tham chiếu: {payload.reference_website or 'không có'}
 Nếu đây là CNCTech, dùng thông tin liên hệ mặc định: first name Linh, last name Vu, email contacts@cnctech.vn, phone/WhatsApp +84 988506888."""
     try:
-        result = await _json_completion([{"role": "system", "content": "Bạn là trợ lý tạo nội dung contact B2B."}, {"role": "user", "content": prompt}], _models(db))
+        result = await _json_completion([{"role": "system", "content": _system_prompt("Bạn là trợ lý tạo nội dung contact B2B.", db)}, {"role": "user", "content": prompt}], _models(db))
     except OpenRouterError as exc:
         raise HTTPException(503, str(exc)) from exc
     return {"fields": _apply_contact_defaults(result, payload)}
@@ -172,7 +182,7 @@ Mô tả: {payload.description}
 Website tham chiếu: {payload.reference_website or 'không có'}
 Tài khoản hợp lệ: {json.dumps(account_data, ensure_ascii=False)}"""
     try:
-        result = await _json_completion([{"role": "system", "content": "Bạn là chuyên viên viết email marketing B2B."}, {"role": "user", "content": prompt}], _models(db))
+        result = await _json_completion([{"role": "system", "content": _system_prompt("Bạn là chuyên viên viết email marketing B2B.", db)}, {"role": "user", "content": prompt}], _models(db))
     except OpenRouterError as exc:
         raise HTTPException(503, str(exc)) from exc
     valid_ids = {account["id"] for account in account_data}
@@ -217,7 +227,7 @@ async def company_analysis(
             [
                 {
                     "role": "system",
-                    "content": "Bạn là chuyên viên phân tích B2B, trung thực và không bịa dữ liệu.",
+                    "content": _system_prompt("Bạn là chuyên viên phân tích B2B, trung thực và không bịa dữ liệu.", db),
                 },
                 {"role": "user", "content": prompt},
             ]

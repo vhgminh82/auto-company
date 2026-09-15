@@ -1,4 +1,4 @@
-from sqlalchemy import DateTime, Integer, String
+from sqlalchemy import DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -12,4 +12,5 @@ class AISetting(Base):
     primary_model: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     fallback_model_1: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     fallback_model_2: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    custom_prompt: Mapped[str] = mapped_column(Text, nullable=False, default="")
     updated_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

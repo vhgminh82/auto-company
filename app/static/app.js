@@ -1162,6 +1162,7 @@ async function initAuthAndSettings() {
     aiForm.elements.primary_model.value = data.primary_model || '';
     aiForm.elements.fallback_model_1.value = data.fallback_model_1 || '';
     aiForm.elements.fallback_model_2.value = data.fallback_model_2 || '';
+    aiForm.elements.custom_prompt.value = data.custom_prompt || '';
     aiForm.elements.primary_model.placeholder = data.defaults.primary_model;
     aiForm.elements.fallback_model_1.placeholder = data.defaults.fallback_model_1;
     aiForm.elements.fallback_model_2.placeholder = data.defaults.fallback_model_2;
@@ -1177,7 +1178,7 @@ async function initAuthAndSettings() {
   aiForm.addEventListener('submit', async (event) => {
     event.preventDefault(); aiStatus.textContent = 'Đang lưu...';
     const response = await fetch('/api/ai/settings', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(Object.fromEntries(new FormData(aiForm)))});
-    const body = await response.json(); aiStatus.textContent = response.ok ? 'Đã lưu model AI.' : (body.detail || 'Không lưu được model.');
+    const body = await response.json(); aiStatus.textContent = response.ok ? 'Đã lưu cài đặt AI.' : (body.detail || 'Không lưu được cài đặt AI.');
     if (response.ok) await loadAISettings();
   });
   aiForm.querySelectorAll('[data-ai-test]').forEach((button) => button.addEventListener('click', async () => {

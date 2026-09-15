@@ -54,6 +54,11 @@ def ensure_schema():
         if "reference_website" not in scenario_columns:
             connection.execute(text("ALTER TABLE contact_scenarios ADD COLUMN reference_website VARCHAR(2000) NOT NULL DEFAULT ''"))
 
+    ai_columns = {column["name"] for column in inspect(engine).get_columns("ai_settings")}
+    with engine.begin() as connection:
+        if "custom_prompt" not in ai_columns:
+            connection.execute(text("ALTER TABLE ai_settings ADD COLUMN custom_prompt TEXT NOT NULL DEFAULT ''"))
+
     check_constraints = {item.get("name") for item in inspect(engine).get_check_constraints("companies")}
     with engine.begin() as connection:
         if "companies_website_required" not in check_constraints:
