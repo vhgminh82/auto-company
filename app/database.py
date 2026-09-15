@@ -80,6 +80,7 @@ def ensure_schema():
 
     account_columns = {column["name"] for column in inspect(engine).get_columns("ses_accounts")}
     account_additions = {
+        "provider": "VARCHAR(16) NOT NULL DEFAULT 'ses'",
         "smtp_host": "VARCHAR(255) NOT NULL DEFAULT ''",
         "smtp_port": "INTEGER NOT NULL DEFAULT 465",
         "smtp_security": "VARCHAR(16) NOT NULL DEFAULT 'ssl'",

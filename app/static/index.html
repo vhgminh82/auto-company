@@ -114,18 +114,19 @@
     <div id="emktAccountModal" class="modal" hidden>
       <div class="modal-content">
         <button id="closeEmktAccountModal" class="modal-close" type="button">×</button>
-        <h2>Thêm tài khoản SMTP AWS SES</h2>
+        <h2>Thêm tài khoản gửi email</h2>
         <form id="emktAccountForm">
           <div class="grid">
             <input name="name" placeholder="Tên tài khoản" required />
+            <select name="provider"><option value="ses">AWS SES</option><option value="google">Google Gmail</option><option value="zoho">Zoho Mail</option><option value="smtp">SMTP khác</option></select>
             <input name="smtp_host" value="email-smtp.us-east-1.amazonaws.com" placeholder="SMTP host" required />
             <input name="smtp_port" type="number" value="465" min="1" max="65535" placeholder="SMTP port" required />
             <select name="smtp_security"><option value="ssl">SSL/TLS</option><option value="starttls">STARTTLS</option><option value="none">Không mã hóa</option></select>
             <input name="region" value="us-west-2" placeholder="AWS region" required />
             <input name="access_key_id" placeholder="IAM Access Key ID" />
             <input name="secret_access_key" type="password" placeholder="IAM Secret Access Key (để trống khi sửa)" />
-            <input name="smtp_username" placeholder="SMTP username (tương thích cũ)" />
-            <input name="smtp_password" type="password" placeholder="SMTP password (tương thích cũ)" />
+            <input name="smtp_username" placeholder="SMTP username / email đăng nhập" />
+            <input name="smtp_password" type="password" placeholder="SMTP password / App Password" />
             <input name="from_email" type="email" placeholder="Email gửi đã verify trên SES" required />
             <input name="from_name" placeholder="Tên người gửi" />
             <input name="configuration_set" placeholder="SES Configuration Set (tùy chọn)" />
@@ -133,7 +134,7 @@
           <hr />
           <h3>Gửi email thử</h3>
           <input name="test_to_email" type="email" placeholder="Email nhận thử" />
-          <div class="actions"><button type="submit">Lưu tài khoản SMTP</button><button id="testEmktAccountBtn" class="emkt-test-button" type="button">Test</button><span id="emktAccountModalStatus"></span></div>
+          <small>Google: dùng Gmail SMTP và App Password. Zoho: dùng SMTP password hoặc App Password, không dùng mật khẩu đăng nhập thường nếu tài khoản bật MFA.</small><div class="actions"><button type="submit">Lưu tài khoản</button><button id="testEmktAccountBtn" class="emkt-test-button" type="button">Test</button><span id="emktAccountModalStatus"></span></div>
         </form>
       </div>
     </div>

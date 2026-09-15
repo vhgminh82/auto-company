@@ -21,6 +21,7 @@ router = APIRouter(prefix="/api/emkt", tags=["emkt"])
 
 class AccountRequest(BaseModel):
     name: str = Field(min_length=1, max_length=128)
+    provider: str = Field(default="ses", pattern="^(ses|google|zoho|smtp)$")
     smtp_host: str = Field(default="email-smtp.us-east-1.amazonaws.com", min_length=3, max_length=255)
     smtp_port: int = Field(default=465, ge=1, le=65535)
     smtp_security: str = Field(default="ssl", pattern="^(ssl|starttls|none)$")
@@ -93,7 +94,7 @@ def account_out(item: SesAccount) -> dict:
     except InvalidToken:
         access_key_id = ""
     return {
-        "id": item.id, "name": item.name, "smtp_host": item.smtp_host, "smtp_port": item.smtp_port,
+        "id": item.id, "name": item.name, "provider": item.provider, "smtp_host": item.smtp_host, "smtp_port": item.smtp_port,
         "smtp_security": item.smtp_security, "smtp_username": smtp_username,
         "region": item.region, "access_key_id": access_key_id,
         "from_email": item.from_email, "from_name": item.from_name,
@@ -134,14 +135,17 @@ def list_accounts(db: Session = Depends(get_db)):
 
 @router.post("/accounts")
 def create_account(request: AccountRequest, db: Session = Depends(get_db)):
-    if not request.access_key_id.strip() or not request.secret_access_key:
+    if request.provider in {"google", "zoho", "smtp"} and (not request.smtp_username.strip() or not request.smtp_password):
+        raise HTTPException(422, "Nhà cung cấp SMTP cần username và password/app password.")
+    if request.provider == "ses" and not request.access_key_id.strip() and not request.secret_access_key:
         if not request.smtp_username.strip() or not request.smtp_password:
-            raise HTTPException(422, "Cần nhập IAM Access Key ID và Secret Access Key để dùng SES API.")
+            raise HTTPException(422, "Cần nhập IAM credentials hoặc SMTP credentials cho SES.")
     name = request.name.strip()
     item = db.query(SesAccount).filter(SesAccount.name == name).first()
     if not item:
         item = SesAccount(name=name, region=request.region.strip(), enabled=1)
         db.add(item)
+    item.provider = request.provider
     item.region = request.region.strip()
     item.access_key_id = encrypt_secret(request.access_key_id.strip()) if request.access_key_id.strip() else ""
     item.secret_access_key = encrypt_secret(request.secret_access_key) if request.secret_access_key else ""
@@ -177,7 +181,13 @@ def update_account(account_id: int, request: AccountRequest, db: Session = Depen
     item = db.get(SesAccount, account_id)
     if not item:
         raise HTTPException(404, "Không tìm thấy tài khoản SES.")
+    if request.provider in {"google", "zoho", "smtp"}:
+        if not request.smtp_username.strip() and not item.smtp_username:
+            raise HTTPException(422, "Nhà cung cấp SMTP cần username/email đăng nhập.")
+        if not request.smtp_password and not item.smtp_password:
+            raise HTTPException(422, "Nhà cung cấp SMTP cần password hoặc App Password.")
     item.name = request.name.strip()
+    item.provider = request.provider
     item.region = request.region.strip()
     if request.access_key_id.strip():
         item.access_key_id = encrypt_secret(request.access_key_id.strip())

@@ -264,11 +264,11 @@ async function loadEmktAccounts() {
   const accounts = await (await fetch('/api/emkt/accounts')).json();
   window.emktAccounts = accounts;
   const select = document.getElementById('emktAccountSelect');
-  select.innerHTML = '<option value="">Chọn tài khoản SES</option>';
+  select.innerHTML = '<option value="">Chọn tài khoản gửi</option>';
   accounts.forEach((account) => {
     const option = document.createElement('option'); option.value = account.id; option.textContent = `${account.name} — ${account.from_email}`; select.appendChild(option);
   });
-  document.getElementById('emktAccounts').innerHTML = accounts.length ? accounts.map((account) => `<div class="emkt-account"><strong>${emktEscape(account.name)}</strong> · ${emktEscape(account.smtp_host)}:${account.smtp_port} (${emktEscape(account.smtp_security)}) · gửi từ ${emktEscape(account.from_email)} <button type="button" data-emkt-edit="${account.id}">Sửa</button><button type="button" data-emkt-test="${account.id}">Kiểm tra SMTP</button><button type="button" class="danger-button" data-emkt-delete="${account.id}">Xóa</button></div>`).join('') : '<p>Chưa có tài khoản SMTP.</p>';
+  document.getElementById('emktAccounts').innerHTML = accounts.length ? accounts.map((account) => `<div class="emkt-account"><strong>${emktEscape(account.name)}</strong> · ${emktEscape(account.provider || 'ses')} · ${emktEscape(account.smtp_host)}:${account.smtp_port} (${emktEscape(account.smtp_security)}) · gửi từ ${emktEscape(account.from_email)} <button type="button" data-emkt-edit="${account.id}">Sửa</button><button type="button" data-emkt-test="${account.id}">Kiểm tra</button><button type="button" class="danger-button" data-emkt-delete="${account.id}">Xóa</button></div>`).join('') : '<p>Chưa có tài khoản gửi email.</p>';
 }
 
 async function loadEmktCampaigns() {
@@ -423,7 +423,7 @@ async function saveEmktAccountFromModal() {
   const form = document.getElementById('emktAccountForm');
   const values = Object.fromEntries(new FormData(form));
   const payload = {};
-  ['name', 'smtp_host', 'smtp_port', 'smtp_security', 'smtp_username', 'smtp_password', 'from_email', 'from_name', 'configuration_set', 'region', 'access_key_id', 'secret_access_key'].forEach((key) => { payload[key] = values[key] || ''; });
+  ['name', 'provider', 'smtp_host', 'smtp_port', 'smtp_security', 'smtp_username', 'smtp_password', 'from_email', 'from_name', 'configuration_set', 'region', 'access_key_id', 'secret_access_key'].forEach((key) => { payload[key] = values[key] || ''; });
   const editId = form.dataset.editId || '';
   const response = await fetch(editId ? `/api/emkt/accounts/${editId}` : '/api/emkt/accounts', {method: editId ? 'PUT' : 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
   const body = await response.json();
@@ -433,10 +433,27 @@ async function saveEmktAccountFromModal() {
   return body.id;
 }
 
+function applyEmailProviderPreset(provider) {
+  const form = document.getElementById('emktAccountForm');
+  const presets = {
+    google: {host: 'smtp.gmail.com', port: 465, security: 'ssl'},
+    zoho: {host: 'smtp.zoho.com', port: 465, security: 'ssl'},
+    ses: {host: 'email-smtp.us-east-1.amazonaws.com', port: 465, security: 'ssl'},
+  };
+  const preset = presets[provider];
+  if (!preset) return;
+  form.elements.smtp_host.value = preset.host;
+  form.elements.smtp_port.value = preset.port;
+  form.elements.smtp_security.value = preset.security;
+}
+
 document.getElementById('openEmktAccountBtn').addEventListener('click', () => {
-  const form = document.getElementById('emktAccountForm'); form.reset(); delete form.dataset.editId;
+  const form = document.getElementById('emktAccountForm'); form.reset(); form.elements.provider.value = 'ses'; delete form.dataset.editId;
   document.getElementById('emktAccountModal').hidden = false;
   document.getElementById('emktAccountModalStatus').textContent = '';
+});
+document.getElementById('emktAccountForm').elements.provider.addEventListener('change', (event) => {
+  applyEmailProviderPreset(event.target.value);
 });
 document.getElementById('closeEmktAccountModal').addEventListener('click', () => { document.getElementById('emktAccountModal').hidden = true; });
 document.getElementById('emktAccountForm').addEventListener('submit', async (event) => {
@@ -465,9 +482,9 @@ document.getElementById('emktAccounts').addEventListener('click', async (event) 
     const account = (window.emktAccounts || []).find(item => item.id === Number(editId));
     if (!account) return;
     const form = document.getElementById('emktAccountForm'); form.dataset.editId = editId;
-    form.elements.name.value = account.name; form.elements.smtp_host.value = account.smtp_host; form.elements.smtp_port.value = account.smtp_port; form.elements.smtp_security.value = account.smtp_security; form.elements.from_email.value = account.from_email; form.elements.from_name.value = account.from_name || ''; form.elements.configuration_set.value = account.configuration_set || '';
+    form.elements.name.value = account.name; form.elements.provider.value = account.provider || 'ses'; form.elements.smtp_host.value = account.smtp_host; form.elements.smtp_port.value = account.smtp_port; form.elements.smtp_security.value = account.smtp_security; form.elements.from_email.value = account.from_email; form.elements.from_name.value = account.from_name || ''; form.elements.configuration_set.value = account.configuration_set || '';
     form.elements.region.value = account.region || 'us-west-2'; form.elements.access_key_id.value = account.access_key_id || ''; form.elements.secret_access_key.value = ''; form.elements.smtp_username.value = account.smtp_username || ''; form.elements.smtp_password.value = '';
-    document.querySelector('#emktAccountModal h2').textContent = 'Sửa tài khoản SMTP AWS SES';
+    document.querySelector('#emktAccountModal h2').textContent = 'Sửa tài khoản gửi email';
     document.getElementById('emktAccountModal').hidden = false; document.getElementById('emktAccountModalStatus').textContent = 'Nhập IAM credentials để gửi qua SES API; để trống secret khi không đổi.';
     return;
   }

@@ -12,6 +12,7 @@ class SesAccount(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_email: Mapped[str] = mapped_column(String(320), nullable=False, default="", index=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    provider: Mapped[str] = mapped_column(String(16), nullable=False, default="ses")
     region: Mapped[str] = mapped_column(String(64), nullable=False, default="us-east-1")
     access_key_id: Mapped[str] = mapped_column(String(512), nullable=False, default="")
     secret_access_key: Mapped[str] = mapped_column(String(1024), nullable=False, default="")
