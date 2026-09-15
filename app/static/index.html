@@ -49,7 +49,37 @@
     <div id="contactListModal" class="modal" hidden><div class="modal-content list-modal-content"><button id="closeContactListModal" class="modal-close" type="button">×</button><h2>New list contact</h2><form id="contactListForm"><input name="name" placeholder="Tên list" required /><input type="hidden" name="country_filter" id="contactNewListCountry" /><div><strong>Quốc gia</strong><div id="contactNewListCountryOptions" class="multi-options"></div></div><input type="hidden" name="industry_filter" id="contactNewListIndustry" /><div><strong>Ngành</strong><div id="contactNewListIndustryOptions" class="multi-options"></div></div><p id="contactNewListCount" class="list-selection-count">Khách hàng: 0</p><div class="actions"><button type="submit">Lưu list</button><span id="contactListModalStatus"></span></div></form></div></div>
     </div>
 
-    <div id="settingsModal" class="modal" hidden><div class="modal-content"><button id="closeSettingsModal" class="modal-close" type="button">×</button><h2>Cài đặt hệ thống</h2><section class="panel"><h3>Model AI OpenRouter</h3><p>Để trống để dùng model mặc định. Model chính lỗi sẽ tự chuyển sang model phụ.</p><form id="aiSettingsForm"><div class="ai-settings-row"><label>Model chính<input name="primary_model" /></label><button type="button" data-ai-test="primary_model">Test</button></div><div class="ai-settings-row"><label>Model phụ 1<input name="fallback_model_1" /></label><button type="button" data-ai-test="fallback_model_1">Test</button></div><div class="ai-settings-row"><label>Model phụ 2<input name="fallback_model_2" /></label><button type="button" data-ai-test="fallback_model_2">Test</button></div><label>Custom prompt<textarea name="custom_prompt" rows="7" placeholder="Nhập hướng dẫn bổ sung cho model AI..."></textarea></label><small>Prompt này được thêm vào hướng dẫn hệ thống cho contact, campaign và phân tích doanh nghiệp.</small><span id="aiTestStatus"></span><div class="actions"><button type="submit">Lưu cài đặt AI</button><span id="aiSettingsStatus"></span></div></form></section><section class="panel"><h3>Cập nhật ứng dụng</h3><button id="githubUpdateBtn" type="button">Update</button> <span id="settingsUpdateStatus"></span></section><section class="panel"><h3>Duyệt tài khoản đăng nhập</h3><p>Chỉ admin mới nhìn thấy và xử lý danh sách này.</p><div id="pendingUsers">Đang tải...</div></section></div></div>
+    <div id="settingsModal" class="modal" hidden>
+      <div class="modal-content settings-modal-content">
+        <button id="closeSettingsModal" class="modal-close" type="button" aria-label="Đóng cài đặt">×</button>
+        <div class="settings-modal-header">
+          <div><span class="settings-eyebrow">ADMINISTRATION</span><h2>Cài đặt hệ thống</h2><p>Quản lý AI, phiên bản ứng dụng và quyền truy cập từ một nơi.</p></div>
+        </div>
+        <div class="settings-sections">
+          <section class="settings-section settings-ai-section">
+            <div class="settings-section-heading"><div class="settings-section-icon">✦</div><div><h3>AI & prompt</h3><p>Cấu hình model OpenRouter và hướng dẫn dùng chung cho các tác vụ AI.</p></div></div>
+            <form id="aiSettingsForm" class="settings-form">
+              <div class="settings-model-grid">
+                <div class="ai-settings-row"><label>Model chính<input name="primary_model" /></label><button type="button" data-ai-test="primary_model">Test</button></div>
+                <div class="ai-settings-row"><label>Model phụ 1<input name="fallback_model_1" /></label><button type="button" data-ai-test="fallback_model_1">Test</button></div>
+                <div class="ai-settings-row"><label>Model phụ 2<input name="fallback_model_2" /></label><button type="button" data-ai-test="fallback_model_2">Test</button></div>
+              </div>
+              <label class="settings-field-full">Custom prompt<textarea name="custom_prompt" rows="7" placeholder="Nhập hướng dẫn bổ sung cho model AI..."></textarea><small>Prompt này được thêm vào hướng dẫn hệ thống cho contact, campaign và phân tích doanh nghiệp.</small></label>
+              <div class="settings-inline-status"><span id="aiTestStatus"></span><span id="aiSettingsStatus"></span></div>
+              <div class="settings-actions"><button type="submit">Lưu cài đặt AI</button></div>
+            </form>
+          </section>
+          <section class="settings-section">
+            <div class="settings-section-heading"><div class="settings-section-icon">↻</div><div><h3>Cập nhật ứng dụng</h3><p>Kiểm tra và cài phiên bản mới nhất từ GitHub.</p></div></div>
+            <div class="settings-update-row"><button id="githubUpdateBtn" type="button">Kiểm tra cập nhật</button><span id="settingsUpdateStatus"></span></div>
+          </section>
+          <section class="settings-section">
+            <div class="settings-section-heading"><div class="settings-section-icon">♙</div><div><h3>Quản trị người dùng</h3><p>Duyệt hoặc từ chối các tài khoản đang chờ xử lý.</p></div></div>
+            <div id="pendingUsers" class="settings-users">Đang tải...</div>
+          </section>
+        </div>
+      </div>
+    </div>
     <div id="emktTab" class="tab-content" hidden>
     <div class="emkt-subtabs"><button class="emkt-subtab" data-emkt-tab="lists">List</button><button class="emkt-subtab active" data-emkt-tab="campaign">Campaign</button><button class="emkt-subtab" data-emkt-tab="stats">Thống kê</button><button class="emkt-subtab" data-emkt-tab="accounts">Tài khoản</button></div>
     <section id="emktAccountsPanel" class="panel emkt-subpanel" data-emkt-panel="accounts" hidden>
