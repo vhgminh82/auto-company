@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.legacy_db import connect_supabase
-from app.core.url_utils import is_blocked_url, normalize_url_for_index
+from app.core.url_utils import is_blocked_source_url, is_blocked_url, normalize_url_for_index
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -48,6 +48,8 @@ def candidates(csv_file: Path):
 
 
 def import_file(csv_file: Path, database: Path, query: str) -> dict[str, int]:
+    if is_blocked_source_url(query):
+        return {"inserted": 0, "updated": 0, "skipped": 0}
     connection = connect_supabase(database)
     connection.row_factory = dict
     inserted = updated = skipped = 0

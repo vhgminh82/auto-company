@@ -4,7 +4,7 @@ import re
 from urllib.parse import urlsplit
 
 from app.address_parser import split_address
-from app.core.url_utils import is_blocked_url, normalize_url_for_index
+from app.core.url_utils import is_blocked_source_url, is_blocked_url, normalize_url_for_index
 from app.database import SessionLocal
 from app.models.company import Company
 from app.sheet_contact_worker import _client, _spreadsheet_id
@@ -49,7 +49,7 @@ def _record(tab: str, headers: list[str], row: list[str], default_country: str, 
         industry, facebook = "", ""
         description = values.get("nhóm mặt hàng nhập khẩu chính & ghi chú", "")
     website = _root_url(website)
-    if is_blocked_url(website) or (not name and not website):
+    if is_blocked_url(website) or is_blocked_source_url(source_url) or (not name and not website):
         return None
     city, state = split_address(address, default_country)
     return {

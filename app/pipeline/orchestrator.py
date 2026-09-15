@@ -1,5 +1,5 @@
 ﻿from app.connectors.registry import get_default_connectors
-from app.core.url_utils import is_blocked_url
+from app.core.url_utils import is_blocked_source_url, is_blocked_url
 from app.pipeline.processors.deduper import dedupe_records
 from app.pipeline.processors.merger import merge_group
 from app.pipeline.processors.normalizer import normalize_record
@@ -29,6 +29,7 @@ class CrawlOrchestrator:
             for record in collected
             if (record.get("name", "") or "").strip()
             and not is_blocked_url(record.get("website", ""))
+            and not is_blocked_source_url(record.get("source_url", ""))
         ]
         yield {"stage": "normalize", "collected": len(collected), "normalized": len(normalized)}
 
