@@ -77,9 +77,17 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
                     try:
                         # Bulk enrichment is HTTP-only; Playwright is reserved for
                         # interactive contact-form inspection.
-                        contact_result = await asyncio.wait_for(
-                            inspect_url(company.website, allow_browser=False), timeout=20
-                        )
+                        try:
+                            contact_result = await asyncio.wait_for(
+                                inspect_url(company.website, allow_browser=False), timeout=20
+                            )
+                        except asyncio.TimeoutError:
+                            return company_id, "404", "", "", {"emails": ""}
+                        except Exception as exc:
+                            print(f"[db-contact] id={company_id} website error={type(exc).__name__}: {exc}", flush=True)
+                            return company_id, "404", "", "", {"emails": ""}
+                        if contact_result.get("error") or not contact_result.get("page_text"):
+                            return company_id, "404", "", "", {"emails": ""}
                         email_result = await asyncio.wait_for(
                             asyncio.to_thread(enrich_isolated, company.website, 15, 0.1),
                             timeout=30,
