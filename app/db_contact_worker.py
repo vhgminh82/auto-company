@@ -23,6 +23,22 @@ DOMAIN_COUNTRIES = {
 }
 
 
+def _pending_company_ids() -> list[int]:
+    db = SessionLocal()
+    try:
+        rows = db.query(Company.id, Company.website).filter(
+            Company.website != "",
+            ((Company.email == "") | (Company.email.is_(None)) | (Company.contact == "") | (Company.contact.is_(None)) |
+             (Company.country == "") | (Company.country.is_(None)) | (Company.industry == "") | (Company.industry.is_(None)) |
+             (Company.facebook == "") | (Company.facebook.is_(None)) | (Company.youtube == "") | (Company.youtube.is_(None)) |
+             (Company.x == "") | (Company.x.is_(None)) | (Company.linkedin == "") | (Company.linkedin.is_(None)) |
+             (Company.address == "") | (Company.address.is_(None)))
+        ).all()
+        return [row.id for row in rows if not is_blocked_url(row.website)]
+    finally:
+        db.close()
+
+
 def _country_from_website(website: str) -> str:
     host = (urlsplit(website or "").hostname or "").casefold()
     for suffix, country in DOMAIN_COUNTRIES.items():
@@ -43,25 +59,7 @@ async def run_db_job(job_id: str, batch_size: int) -> None:
     job = _jobs[job_id]
     db = SessionLocal()
     try:
-        pending = db.query(Company.id).filter(
-            Company.website != "",
-            ((Company.email == "") | (Company.email.is_(None)) |
-             (Company.contact == "") | (Company.contact.is_(None)) |
-             (Company.country == "") | (Company.country.is_(None)) |
-             (Company.industry == "") | (Company.industry.is_(None)) |
-             (Company.facebook == "") | (Company.facebook.is_(None)) |
-             (Company.youtube == "") | (Company.youtube.is_(None)) |
-             (Company.x == "") | (Company.x.is_(None)) |
-             (Company.linkedin == "") | (Company.linkedin.is_(None)) |
-             (Company.address == "") | (Company.address.is_(None))),
-        ).all()
-        pending_ids = [company_id for (company_id,) in pending]
-        pending_ids = [
-            company_id
-            for company_id in pending_ids
-            if (company := db.get(Company, company_id)) is not None
-            and not is_blocked_url(company.website)
-        ]
+        pending_ids = await asyncio.to_thread(_pending_company_ids)
         job.update(total=len(pending_ids), status="running", found=0, latest="")
         print(f"[db-contact] job={job_id} pending={len(pending_ids)}", flush=True)
 

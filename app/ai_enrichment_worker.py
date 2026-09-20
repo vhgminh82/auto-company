@@ -18,6 +18,28 @@ FIELDS = ("address", "city", "state", "country", "industry", "email", "email_2",
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
+def _pending_company_ids() -> list[int]:
+    db = SessionLocal()
+    try:
+        rows = db.query(
+            Company.id, Company.address, Company.city, Company.state, Company.country,
+            Company.industry, Company.email, Company.phone, Company.facebook,
+            Company.linkedin, Company.youtube, Company.x,
+        ).filter(
+            Company.website != "",
+            ((Company.address == "") | (Company.address.is_(None)) | (Company.city == "") | (Company.city.is_(None)) |
+             (Company.state == "") | (Company.state.is_(None)) | (Company.country == "") | (Company.country.is_(None)) |
+             (Company.industry == "") | (Company.industry.is_(None)) | (Company.email == "") | (Company.email.is_(None)) |
+             (Company.phone == "") | (Company.phone.is_(None)) | (Company.facebook == "") | (Company.facebook.is_(None)) |
+             (Company.linkedin == "") | (Company.linkedin.is_(None)) | (Company.youtube == "") | (Company.youtube.is_(None)) |
+             (Company.x == "") | (Company.x.is_(None)))
+        ).all()
+        rows.sort(key=lambda row: (-sum(not (getattr(row, field, "") or "").strip() for field in FIELDS), row.id))
+        return [row.id for row in rows]
+    finally:
+        db.close()
+
+
 def _ai_config(db) -> tuple[list[str], str]:
     defaults = ("nvidia/nemotron-3-ultra-550b-a55b", "poolside/laguna-s-2.1", "inclusionai/ling-3.0-flash-fin")
     item = db.get(AISetting, 1)
@@ -70,16 +92,7 @@ async def run_job(job_id: str) -> None:
     db = SessionLocal()
     try:
         models, custom = _ai_config(db)
-        pending = db.query(Company).filter(
-            Company.website != "",
-            ((Company.address == "") | (Company.address.is_(None)) | (Company.city == "") | (Company.city.is_(None)) |
-             (Company.state == "") | (Company.state.is_(None)) | (Company.country == "") | (Company.country.is_(None)) |
-             (Company.industry == "") | (Company.industry.is_(None)) | (Company.email == "") | (Company.email.is_(None)) |
-             (Company.phone == "") | (Company.phone.is_(None)) | (Company.facebook == "") | (Company.facebook.is_(None)) |
-             (Company.linkedin == "") | (Company.linkedin.is_(None)) | (Company.youtube == "") | (Company.youtube.is_(None)) |
-             (Company.x == "") | (Company.x.is_(None))),
-        ).all()
-        pending.sort(key=lambda company: (-sum(not (getattr(company, field, "") or "").strip() for field in FIELDS), company.id))
+        pending = [company for company_id in await asyncio.to_thread(_pending_company_ids) if (company := db.get(Company, company_id))]
         job.update(total=len(pending), status="running")
         sem = asyncio.Semaphore(2)
 
