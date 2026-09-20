@@ -132,10 +132,16 @@ async def run_job(job_id: str) -> None:
         db.close()
 
 
+async def _start_job_after_response(job_id: str) -> None:
+    # Let the HTTP response leave the event loop before the initial DB query.
+    await asyncio.sleep(0.1)
+    await run_job(job_id)
+
+
 def create_job() -> str:
     job_id = uuid.uuid4().hex
     _jobs[job_id] = {"job_id": job_id, "status": "queued", "total": 0, "processed": 0, "found": 0, "latest": "", "last_note": "", "error": None}
-    _tasks[job_id] = asyncio.create_task(run_job(job_id))
+    _tasks[job_id] = asyncio.create_task(_start_job_after_response(job_id))
     return job_id
 
 
