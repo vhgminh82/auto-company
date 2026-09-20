@@ -24,6 +24,7 @@ from app.api.emkt import router as emkt_router
 from app.api.emkt_lists import router as emkt_lists_router
 from app.api.emkt_tracking import router as emkt_tracking_router
 from app.api.ai import router as ai_router
+from app.api.ai_enrichment import router as ai_enrichment_router
 from app.auth import router as auth_router
 from app.middleware import LoginRequiredMiddleware
 from app.database import Base, engine, ensure_schema
@@ -73,10 +74,12 @@ app.include_router(emkt_router)
 app.include_router(emkt_lists_router)
 app.include_router(emkt_tracking_router)
 app.include_router(ai_router)
+app.include_router(ai_enrichment_router)
 app.include_router(auth_router)
 
 
 @app.on_event("startup")
 async def start_background_jobs() -> None:
     from app.startup_jobs import auto_start_jobs
-    asyncio.create_task(auto_start_jobs())
+    if os.getenv("AUTO_START_JOBS", "0").lower() in {"1", "true", "yes"}:
+        asyncio.create_task(auto_start_jobs())

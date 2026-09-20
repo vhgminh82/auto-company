@@ -1044,6 +1044,7 @@ document.getElementById('enrichDataBtn').addEventListener('click', async () => {
   }
   try {
     await refreshEnrichDataStatus();
+refreshAIEnrichDataStatus();
   } catch (error) {
     document.getElementById('enrichDataStatus').textContent = 'Không đọc được trạng thái job.';
   }
@@ -1060,7 +1061,41 @@ document.getElementById('stopEnrichDataBtn').addEventListener('click', async () 
   document.getElementById('enrichDataBtn').disabled = false;
   document.getElementById('stopEnrichDataBtn').disabled = true;
 });
-document.getElementById('startContactCampaignBtn').addEventListener('click', startContactCampaign);
+let aiEnrichDataTimer;
+async function refreshAIEnrichDataStatus() {
+  const button = document.getElementById('aiEnrichDataBtn');
+  const statusEl = document.getElementById('aiEnrichDataStatus');
+  const response = await fetch('/api/ai-enrichment/status');
+  if (!response.ok) throw new Error('Status request failed');
+  const {status, current, total, found, latest, error} = await response.json();
+  if (status === 'running') {
+    button.disabled = true;
+    statusEl.textContent = total ? `AI: ${current}/${total}, đã bổ sung ${found || 0} trường${latest ? ` (mới nhất: ${latest})` : ''}` : 'AI đang chuẩn bị...';
+    clearTimeout(aiEnrichDataTimer);
+    aiEnrichDataTimer = setTimeout(refreshAIEnrichDataStatus, 3000);
+  } else {
+    button.disabled = false;
+    if (status === 'completed') statusEl.textContent = `AI hoàn tất: đã bổ sung ${found || 0} trường.`;
+    if (status === 'failed') statusEl.textContent = `AI lỗi${error ? `: ${error}` : '.'}`;
+    if (status === 'idle') statusEl.textContent = '';
+  }
+}
+document.getElementById('aiEnrichDataBtn').addEventListener('click', async () => {
+  const button = document.getElementById('aiEnrichDataBtn');
+  const statusEl = document.getElementById('aiEnrichDataStatus');
+  button.disabled = true;
+  statusEl.textContent = 'Đang khởi động AI...';
+  try {
+    const response = await fetch('/api/ai-enrichment/start', {method: 'POST'});
+    let body = {};
+    try { body = await response.json(); } catch (_) {}
+    if (!response.ok) throw new Error(body.detail || `Không thể khởi động AI (HTTP ${response.status}).`);
+    await refreshAIEnrichDataStatus();
+  } catch (error) {
+    button.disabled = false;
+    statusEl.textContent = error.message || 'Không thể khởi động AI.';
+  }
+});document.getElementById('startContactCampaignBtn').addEventListener('click', startContactCampaign);
 document.getElementById('newContactScenarioBtn').addEventListener('click', () => openContactScenario());
 document.getElementById("stopContactCampaignBtn").addEventListener("click", async () => {
   if (!window.contactRunId) return;
@@ -1134,7 +1169,9 @@ async function refreshCountryCrawlStatus() {
 document.getElementById('startCountryCrawlBtn').addEventListener('click', async () => {
   const response = await fetch('/api/country-crawl/start', {method: 'POST'});
   if (!response.ok) {
-    document.getElementById('countryCrawlProgress').textContent = 'Không thể khởi động tìm kiếm.';
+    let detail = '';
+    try { detail = (await response.json()).detail || ''; } catch (_) {}
+    document.getElementById('countryCrawlProgress').textContent = detail || `Không thể khởi động tìm kiếm (HTTP ${response.status}).`;
     return;
   }
   document.getElementById('countryCrawlProgress').textContent = 'Đang chuẩn bị tìm...';
@@ -1226,6 +1263,19 @@ loadContactCampaign();
 loadCountrySource();
 refreshCountryCrawlStatus();
 refreshEnrichDataStatus();
+refreshAIEnrichDataStatus();
+
+async function readJsonResponse(response) {
+  const body = await response.text();
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch (_) {
+    throw new Error('Máy chủ trả về response không hợp lệ (HTTP ' + response.status + '). Vui lòng thử lại.');
+  }
+  if (!response.ok) throw new Error(data.message || 'Yêu cầu thất bại (HTTP ' + response.status + ')');
+  return data;
+}
 
 const githubUpdateBtn = document.getElementById('githubUpdateBtn');
 if (githubUpdateBtn) {
@@ -1234,7 +1284,7 @@ if (githubUpdateBtn) {
     githubUpdateBtn.disabled = true;
     status.textContent = 'Đang kiểm tra GitHub...';
     try {
-      const check = await (await fetch('/api/system/update/check')).json();
+      const check = await readJsonResponse(await fetch('/api/system/update/check'));
       if (!check.ok) throw new Error(check.message || 'Không kiểm tra được GitHub');
       if (!check.updated) {
         status.textContent = 'Đã là bản mới nhất (' + check.local + ').';
@@ -1245,7 +1295,7 @@ if (githubUpdateBtn) {
         return;
       }
       status.textContent = 'Đang cập nhật...';
-      const result = await (await fetch('/api/system/update', {method: 'POST'})).json();
+      const result = await readJsonResponse(await fetch('/api/system/update', {method: 'POST'}));
       if (!result.ok) throw new Error(result.message || 'Cập nhật thất bại');
       status.textContent = result.message || 'Đã cập nhật.';
     } catch (error) {
