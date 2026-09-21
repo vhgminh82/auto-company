@@ -1305,3 +1305,21 @@ if (githubUpdateBtn) {
     }
   });
 }
+
+const normalizeIndustriesBtn = document.getElementById('normalizeIndustriesBtn');
+if (normalizeIndustriesBtn) {
+  normalizeIndustriesBtn.addEventListener('click', async () => {
+    const status = document.getElementById('industryNormalizeStatus');
+    normalizeIndustriesBtn.disabled = true;
+    status.textContent = 'Đang chuẩn hóa...';
+    try {
+      const result = await readJsonResponse(await fetch('/api/companies/normalize-industries', {method: 'POST'}));
+      status.textContent = `Đã chuẩn hóa ${result.changed} bản ghi.`;
+      await initDropdowns();
+    } catch (error) {
+      status.textContent = 'Lỗi: ' + error.message;
+    } finally {
+      normalizeIndustriesBtn.disabled = false;
+    }
+  });
+}

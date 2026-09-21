@@ -11,6 +11,7 @@ from app.contact_forms import inspect_url
 from app.database import SessionLocal
 from app.models.ai import AISetting
 from app.models.company import Company
+from app.industry_normalizer import main_industry
 
 _jobs: dict[str, dict[str, Any]] = {}
 _tasks: dict[str, asyncio.Task] = {}
@@ -56,7 +57,8 @@ async def _extract(models: list[str], custom: str, company: Company, page_text: 
 Chỉ trả về JSON object với đúng các key: address, city, state, country, industry, email, email_2, phone, facebook, linkedin, youtube, x, evidence.
 Mỗi giá trị là chuỗi; nếu không thấy rõ thì để chuỗi rỗng. evidence là object chứa bằng chứng ngắn cho các giá trị đã trích xuất.
 Tuyệt đối không suy đoán hoặc bịa dữ liệu. Chỉ lấy thông tin được nêu rõ trên website hoặc dữ liệu công ty.
-country dùng tên tiếng Anh chuẩn; industry mô tả ngắn gọn bằng tiếng Việt.
+country dùng tên tiếng Anh chuẩn; industry phải chọn đúng một nhóm chính bằng tiếng Việt.
+Các nhóm hợp lệ: Cơ khí chính xác, Khuôn, Ép nhựa, Gỗ, Thực phẩm, May mặc, Ô tô & phụ tùng, Bao bì & in ấn, Điện tử & công nghệ, Hóa chất & nhựa, Xây dựng & vật liệu, Logistics & phân phối, Y tế & chăm sóc sức khỏe, Máy móc & thiết bị, Nông nghiệp, Năng lượng, Giày dép & da, Nội thất & gia dụng, Kim loại & gia công, Thương mại & bán lẻ, Tư vấn & kỹ thuật, Sản xuất công nghiệp, Dịch vụ, Khác.
 
 Dữ liệu công ty: tên={company.name}; website={company.website}; dữ liệu hiện có={company.address}, {company.city}, {company.state}, {company.country}; ngành={company.industry}
 
@@ -84,6 +86,8 @@ def _safe_result(result: dict[str, Any]) -> dict[str, str]:
     for field in ("email", "email_2"):
         if cleaned[field] and not EMAIL_RE.fullmatch(cleaned[field]):
             cleaned[field] = ""
+    if cleaned["industry"] and cleaned["industry"] != "chưa có":
+        cleaned["industry"] = main_industry(cleaned["industry"])
     return cleaned
 
 

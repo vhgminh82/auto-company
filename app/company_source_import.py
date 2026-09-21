@@ -7,6 +7,7 @@ from app.address_parser import split_address
 from app.core.url_utils import is_blocked_source_url, is_blocked_url, normalize_url_for_index
 from app.database import SessionLocal
 from app.models.company import Company
+from app.industry_normalizer import main_industry
 from app.sheet_contact_worker import _client, _spreadsheet_id
 
 
@@ -54,7 +55,7 @@ def _record(tab: str, headers: list[str], row: list[str], default_country: str, 
     city, state = split_address(address, default_country)
     return {
         "name": name or website[:255], "website": website, "address": address, "email": email,
-        "phone": phone, "industry": industry, "facebook": facebook, "short_description": description,
+        "phone": phone, "industry": main_industry(industry) if industry else "", "facebook": facebook, "short_description": description,
         "industry_raw": industry,
         "country": default_country, "city": city, "state": state, "source_url": source_url,
     }

@@ -8,6 +8,7 @@ from app.repositories.company_repo import search_companies
 from app.repositories.visited_repo import clear_visited
 from app.schemas import CompanyOut
 from app.models.company import Company
+from app.industry_normalizer import main_industry
 from fastapi import HTTPException, Request
 from pydantic import BaseModel
 
@@ -46,6 +47,26 @@ def list_industries(db: Session = Depends(get_db)):
     return sorted({str(value[0]).strip() for value in values if str(value[0]).strip()}, key=str.casefold)
 
 
+@router.post("/companies/normalize-industries")
+def normalize_industries(request: Request, db: Session = Depends(get_db)):
+    if not request.session.get("user", {}).get("is_admin"):
+        raise HTTPException(403, "Chỉ admin được chuẩn hóa ngành.")
+    changed = 0
+    rows = db.query(Company).yield_per(1000)
+    for company in rows:
+        current = (company.industry or "").strip()
+        if not current:
+            continue
+        normalized = main_industry(current)
+        if normalized != current:
+            if not (company.industry_raw or "").strip():
+                company.industry_raw = current
+            company.industry = normalized
+            changed += 1
+    db.commit()
+    return {"ok": True, "changed": changed}
+
+
 @router.patch("/companies/{company_id}")
 def update_company_field(company_id: int, payload: CompanyFieldUpdate, request: Request, db: Session = Depends(get_db)):
     if not request.session.get("user", {}).get("is_admin"):
@@ -56,7 +77,10 @@ def update_company_field(company_id: int, payload: CompanyFieldUpdate, request: 
     company = db.get(Company, company_id)
     if not company:
         raise HTTPException(404, "Không tìm thấy doanh nghiệp.")
-    setattr(company, payload.field, payload.value.strip())
+    value = payload.value.strip()
+    if payload.field == "industry" and value:
+        value = main_industry(value)
+    setattr(company, payload.field, value)
     db.commit()
     return {"ok": True, "id": company.id, "field": payload.field, "value": getattr(company, payload.field)}
 

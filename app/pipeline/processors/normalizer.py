@@ -2,6 +2,7 @@
 from urllib.parse import urlparse
 
 from app.core.url_utils import normalize_url_for_index
+from app.industry_normalizer import main_industry
 
 LEGAL_SUFFIXES = [
     " co ltd", " ltd", " llc", " inc", " corp", " corporation", " company", " jsc", " plc",
@@ -43,7 +44,7 @@ def normalize_record(record: dict[str, str]) -> dict[str, str]:
     normalized["state"] = normalize_text(record.get("state", ""))
     normalized["country"] = normalize_text(record.get("country", ""))
     normalized["region"] = normalize_text(record.get("region", ""))
-    normalized["industry"] = normalize_text(record.get("industry", ""))
+    normalized["industry"] = main_industry(record.get("industry", "")) if normalize_text(record.get("industry", "")) else ""
     normalized["website"] = normalize_url_for_index(record.get("website", ""))
     normalized["email"] = normalize_text(record.get("email", "")).lower()
     normalized["phone"] = normalize_phone(record.get("phone", ""))

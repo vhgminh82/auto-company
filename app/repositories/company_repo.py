@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.constants import COMPANY_EXPORT_COLUMNS
 from app.core.url_utils import is_blocked_source_url, is_blocked_url, normalize_url_for_index
 from app.models.company import Company
+from app.industry_normalizer import main_industry
 
 
 def _to_company_payload(record: dict[str, Any]) -> dict[str, str]:
@@ -28,7 +29,7 @@ def _to_company_payload(record: dict[str, Any]) -> dict[str, str]:
         "linkedin": str(record.get("linkedin", ""))[:512],
         "truth": str(record.get("truth", ""))[:512],
         "country": str(record.get("country", ""))[:128],
-        "industry": str(record.get("industry", ""))[:128],
+        "industry": main_industry(record.get("industry", ""))[:128] if str(record.get("industry", "")).strip() else "",
         "source_url": str(record.get("source_url", ""))[:512],
     }
 
