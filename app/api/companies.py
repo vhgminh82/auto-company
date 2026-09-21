@@ -55,18 +55,18 @@ def _normalize_industries_sync() -> int:
     db = SessionLocal()
     changed = 0
     try:
-        for company in db.query(Company).yield_per(1000):
-            current = (company.industry or "").strip()
-            if not current:
-                continue
+        values = db.query(Company.industry).filter(Company.industry != "").distinct().all()
+        for (current_value,) in values:
+            current = (current_value or "").strip()
             normalized = main_industry(current)
-            if normalized != current:
-                if not (company.industry_raw or "").strip():
-                    company.industry_raw = current
-                company.industry = normalized
-                changed += 1
-            if changed and changed % 1000 == 0:
-                db.commit()
+            if not current or normalized == current:
+                continue
+            query = db.query(Company).filter(Company.industry == current_value)
+            db.query(Company).filter(
+                Company.industry == current_value,
+                (Company.industry_raw == "") | Company.industry_raw.is_(None),
+            ).update({Company.industry_raw: current}, synchronize_session=False)
+            changed += query.update({Company.industry: normalized}, synchronize_session=False)
         db.commit()
         return changed
     finally:
