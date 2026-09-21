@@ -1,8 +1,10 @@
-﻿from fastapi import APIRouter, Depends, Query
+﻿import asyncio
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.repositories.admin_repo import delete_all_companies
 from app.repositories.company_repo import search_companies
 from app.repositories.visited_repo import clear_visited
@@ -17,6 +19,8 @@ class CompanyFieldUpdate(BaseModel):
     value: str = ""
 
 router = APIRouter(prefix="/api", tags=["companies"])
+_industry_normalize_task: asyncio.Task | None = None
+_industry_normalize_state = {"status": "idle", "changed": 0, "error": ""}
 
 
 @router.get("/companies/count")
@@ -47,24 +51,53 @@ def list_industries(db: Session = Depends(get_db)):
     return sorted({str(value[0]).strip() for value in values if str(value[0]).strip()}, key=str.casefold)
 
 
-@router.post("/companies/normalize-industries")
-def normalize_industries(request: Request, db: Session = Depends(get_db)):
+def _normalize_industries_sync() -> int:
+    db = SessionLocal()
+    changed = 0
+    try:
+        for company in db.query(Company).yield_per(1000):
+            current = (company.industry or "").strip()
+            if not current:
+                continue
+            normalized = main_industry(current)
+            if normalized != current:
+                if not (company.industry_raw or "").strip():
+                    company.industry_raw = current
+                company.industry = normalized
+                changed += 1
+            if changed and changed % 1000 == 0:
+                db.commit()
+        db.commit()
+        return changed
+    finally:
+        db.close()
+
+
+async def _run_industry_normalize() -> None:
+    try:
+        changed = await asyncio.to_thread(_normalize_industries_sync)
+        _industry_normalize_state.update(status="done", changed=changed, error="")
+    except Exception as exc:
+        _industry_normalize_state.update(status="error", error=str(exc))
+
+
+@router.get("/companies/normalize-industries/status")
+def normalize_industries_status(request: Request):
     if not request.session.get("user", {}).get("is_admin"):
         raise HTTPException(403, "Chỉ admin được chuẩn hóa ngành.")
-    changed = 0
-    rows = db.query(Company).yield_per(1000)
-    for company in rows:
-        current = (company.industry or "").strip()
-        if not current:
-            continue
-        normalized = main_industry(current)
-        if normalized != current:
-            if not (company.industry_raw or "").strip():
-                company.industry_raw = current
-            company.industry = normalized
-            changed += 1
-    db.commit()
-    return {"ok": True, "changed": changed}
+    return {"ok": _industry_normalize_state["status"] != "error", **_industry_normalize_state}
+
+
+@router.post("/companies/normalize-industries")
+async def normalize_industries(request: Request):
+    global _industry_normalize_task
+    if not request.session.get("user", {}).get("is_admin"):
+        raise HTTPException(403, "Chỉ admin được chuẩn hóa ngành.")
+    if _industry_normalize_task and not _industry_normalize_task.done():
+        return {"ok": True, **_industry_normalize_state}
+    _industry_normalize_state.update(status="running", changed=0, error="")
+    _industry_normalize_task = asyncio.create_task(_run_industry_normalize())
+    return {"ok": True, **_industry_normalize_state}
 
 
 @router.patch("/companies/{company_id}")

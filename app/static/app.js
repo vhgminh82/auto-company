@@ -1308,17 +1308,29 @@ if (githubUpdateBtn) {
 
 const normalizeIndustriesBtn = document.getElementById('normalizeIndustriesBtn');
 if (normalizeIndustriesBtn) {
+  let industryNormalizeTimer;
   normalizeIndustriesBtn.addEventListener('click', async () => {
     const status = document.getElementById('industryNormalizeStatus');
     normalizeIndustriesBtn.disabled = true;
     status.textContent = 'Đang chuẩn hóa...';
     try {
-      const result = await readJsonResponse(await fetch('/api/companies/normalize-industries', {method: 'POST'}));
-      status.textContent = `Đã chuẩn hóa ${result.changed} bản ghi.`;
-      await initDropdowns();
+      await readJsonResponse(await fetch('/api/companies/normalize-industries', {method: 'POST'}));
+      const poll = async () => {
+        const current = await readJsonResponse(await fetch('/api/companies/normalize-industries/status'));
+        if (current.status === 'done') {
+          status.textContent = `Đã chuẩn hóa ${current.changed} bản ghi.`;
+          normalizeIndustriesBtn.disabled = false;
+          await initDropdowns();
+          return;
+        }
+        if (current.status === 'error') throw new Error(current.error || 'Không thể chuẩn hóa ngành.');
+        status.textContent = 'Đang chuẩn hóa dữ liệu nền...';
+        industryNormalizeTimer = setTimeout(poll, 3000);
+      };
+      await poll();
     } catch (error) {
+      clearTimeout(industryNormalizeTimer);
       status.textContent = 'Lỗi: ' + error.message;
-    } finally {
       normalizeIndustriesBtn.disabled = false;
     }
   });
