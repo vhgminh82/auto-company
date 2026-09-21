@@ -38,7 +38,7 @@ def _git(*args: str) -> tuple[int, str]:
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=60,
+            timeout=8,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return 1, str(exc)
@@ -47,7 +47,7 @@ def _git(*args: str) -> tuple[int, str]:
 
 def _github_head() -> str:
     request = URLRequest(GITHUB_API, headers={"User-Agent": "crawl-company-updater", "Accept": "application/vnd.github+json"})
-    with urlopen(request, timeout=30) as response:
+    with urlopen(request, timeout=8) as response:
         return str(json.load(response)["sha"])
 
 
@@ -88,20 +88,23 @@ def _download_update(commit: str) -> None:
 def check_update(request: Request):
     if not request.session.get("user", {}).get("is_admin"):
         raise HTTPException(403, "Chỉ admin được phép kiểm tra cập nhật.")
-    code, output = _git("remote", "get-url", "origin")
-    if code or output != GITHUB_REMOTE:
-        try:
-            remote = _github_head()
-        except Exception as exc:
-            return {"ok": False, "message": f"Không kiểm tra được GitHub: {exc}"}
-        local = _local_version()
-        return {"ok": True, "updated": local != remote, "local": local[:12] or "unknown", "remote": remote[:12], "source": "github-archive"}
-    code, output = _git("fetch", "origin", GITHUB_BRANCH)
-    if code:
-        return {"ok": False, "message": output or "Không thể kiểm tra GitHub."}
-    _, local = _git("rev-parse", "HEAD")
-    _, remote = _git("rev-parse", f"origin/{GITHUB_BRANCH}")
-    return {"ok": True, "updated": local != remote, "local": local[:12], "remote": remote[:12]}
+    try:
+        remote = _github_head()
+    except Exception as exc:
+        return {"ok": False, "message": f"Không kiểm tra được GitHub: {exc}"}
+    local = _local_version()
+    if not local:
+        _, local = _git("rev-parse", "HEAD")
+    return {"ok": True, "updated": local != remote, "local": local[:12] or "unknown", "remote": remote[:12], "source": "github-archive"}
+
+
+def _update_in_background(commit: str) -> None:
+    try:
+        _download_update(commit)
+        _restart_process()
+    except Exception:
+        # The process remains alive so the UI can report an error on the next check.
+        return
 
 
 @router.post("/api/system/update")
@@ -113,17 +116,6 @@ def update_from_github(request: Request):
         return check
     if not check.get("updated"):
         return {"ok": True, "updated": False, "message": "App đã là phiên bản mới nhất."}
-    if check.get("source") == "github-archive":
-        try:
-            _download_update(check["remote"] if len(check["remote"]) == 40 else _github_head())
-        except Exception as exc:
-            return {"ok": False, "message": f"Tải bản cập nhật thất bại: {exc}"}
-        threading.Timer(1.0, _restart_process).start()
-        return {"ok": True, "updated": True, "restart_required": True, "message": "Đã cập nhật và đang khởi động lại app."}
-    _, dirty = _git("status", "--porcelain")
-    if dirty:
-        return {"ok": False, "message": "Có thay đổi local chưa commit; không tự ghi đè."}
-    code, output = _git("pull", "--ff-only", "origin", GITHUB_BRANCH)
-    if code:
-        return {"ok": False, "message": output or "Pull thất bại."}
-    return {"ok": True, "updated": True, "restart_required": True, "message": "Đã cập nhật mã nguồn. Cần khởi động lại app.", "output": output}
+    commit = check["remote"] if len(check.get("remote", "")) == 40 else _github_head()
+    threading.Thread(target=_update_in_background, args=(commit,), daemon=True).start()
+    return {"ok": True, "updated": True, "restart_required": True, "message": "Đang cập nhật nền; app sẽ tự khởi động lại sau khi tải xong."}
