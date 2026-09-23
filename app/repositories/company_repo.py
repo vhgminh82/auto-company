@@ -1,4 +1,4 @@
-﻿from typing import Any
+from typing import Any
 
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
@@ -59,6 +59,21 @@ def search_companies(db: Session, q: str, country: str, industry: str, limit: in
                 Company.name.ilike(like_q),
                 Company.short_description.ilike(like_q),
                 Company.website.ilike(like_q),
+                Company.address.ilike(like_q),
+                Company.city.ilike(like_q),
+                Company.state.ilike(like_q),
+                Company.country.ilike(like_q),
+                Company.industry.ilike(like_q),
+                Company.contact.ilike(like_q),
+                Company.email.ilike(like_q),
+                Company.email_2.ilike(like_q),
+                Company.phone.ilike(like_q),
+                Company.facebook.ilike(like_q),
+                Company.facebook_alt.ilike(like_q),
+                Company.youtube.ilike(like_q),
+                Company.x.ilike(like_q),
+                Company.linkedin.ilike(like_q),
+                Company.truth.ilike(like_q),
             )
         )
     if country:

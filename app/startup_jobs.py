@@ -12,11 +12,11 @@ logger = logging.getLogger(__name__)
 async def auto_start_jobs() -> None:
     """Run country discovery first, then the single capped enrichment job."""
     try:
-        country = start_crawl_job(auto=True)
+        country = await asyncio.to_thread(start_crawl_job, auto=True)
         logger.info("[startup-jobs] country crawl: %s", country)
         while country_crawl_running():
             await asyncio.sleep(30)
-        enrichment = start_enrichment_job()
+        enrichment = await asyncio.to_thread(start_enrichment_job)
         logger.info("[startup-jobs] enrichment: %s", enrichment)
     except Exception:
         logger.exception("[startup-jobs] failed to start background jobs")

@@ -32,9 +32,10 @@ class SesAccount(Base):
 
 class EmktList(Base):
     __tablename__ = "emkt_lists"
+    __table_args__ = (UniqueConstraint("owner_email", "name", name="uq_emkt_lists_owner_name"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_email: Mapped[str] = mapped_column(String(320), nullable=False, default="", index=True)
-    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     country_filter: Mapped[str] = mapped_column(String(128), nullable=False, default="")
     industry_filter: Mapped[str] = mapped_column(String(128), nullable=False, default="")
     query_filter: Mapped[str] = mapped_column(String(255), nullable=False, default="")
@@ -159,9 +160,10 @@ class ContactRunDetail(Base):
 
 class ContactList(Base):
     __tablename__ = "contact_lists"
+    __table_args__ = (UniqueConstraint("owner_email", "name", name="uq_contact_lists_owner_name"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     owner_email: Mapped[str] = mapped_column(String(320), nullable=False, default="", index=True)
-    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     country_filter: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     industry_filter: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

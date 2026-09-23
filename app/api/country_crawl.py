@@ -35,6 +35,18 @@ def _pid_running(pid: int | None) -> bool:
         return False
 
 
+def _crawler_pid_running(pid: int | None) -> bool:
+    """Return true only when the PID belongs to this crawler, not a reused PID."""
+    if not _pid_running(pid):
+        return False
+    try:
+        command_line = " ".join(psutil.Process(pid).cmdline()).lower()
+    except (psutil.NoSuchProcess, psutil.AccessDenied, OSError, SystemError):
+        return False
+    expected = (str(BATCH_FILE) if os.name == "nt" else str(PYTHON_RUNNER)).lower()
+    return expected in command_line
+
+
 def _progress() -> dict:
     if not PROGRESS_FILE.exists():
         return {"state": "idle", "current": 0, "total": 0, "query": ""}
@@ -51,6 +63,8 @@ def _progress() -> dict:
 def start_crawl_job(auto: bool = False, request: Request | None = None):
     if request is not None and not request.session.get("user", {}).get("is_admin"):
         raise HTTPException(403, "Chỉ admin được tìm doanh nghiệp.")
+    if os.name != "nt":
+        raise HTTPException(501, "Country crawl trên server chỉ được phép chạy Google Maps; chưa bật bộ Google Maps scraper.")
     global _process
     if os.name == "nt":
         command = ["cmd.exe", "/c", str(BATCH_FILE)]
@@ -59,26 +73,30 @@ def start_crawl_job(auto: bool = False, request: Request | None = None):
             raise HTTPException(404, "country crawl runner not found.")
         command = [sys.executable, str(PYTHON_RUNNER), "--progress", str(PROGRESS_FILE)]
     running_pid = _process.pid if _process and _process.poll() is None else _saved_pid()
-    if _pid_running(running_pid):
+    if _crawler_pid_running(running_pid):
         return {"started": False, **_progress()}
+    PID_FILE.unlink(missing_ok=True)
     if auto and _progress().get("state") == "done":
         return {"started": False, **_progress()}
     PROGRESS_FILE.parent.mkdir(parents=True, exist_ok=True)
     PROGRESS_FILE.unlink(missing_ok=True)
-    _process = subprocess.Popen(
-        command,
-        cwd=CRAWL_DIR,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.STDOUT,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-    )
+    try:
+        _process = subprocess.Popen(
+            command,
+            cwd=CRAWL_DIR,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except OSError as exc:
+        raise HTTPException(500, f"Không thể khởi động crawler: {exc}") from exc
     PID_FILE.write_text(str(_process.pid), encoding="ascii")
     return {"started": True, "state": "running", "current": 0, "total": 0, "query": "", "found": 0}
 
 
 def country_crawl_running() -> bool:
     running_pid = _process.pid if _process and _process.poll() is None else _saved_pid()
-    return _pid_running(running_pid)
+    return _crawler_pid_running(running_pid)
 
 
 @router.post("/start")
@@ -90,10 +108,12 @@ def start_crawl(request: Request):
 def stop_crawl(request: Request):
     if not request.session.get("user", {}).get("is_admin"):
         raise HTTPException(403, "Chỉ admin được dừng tìm doanh nghiệp.")
+    if os.name != "nt":
+        raise HTTPException(501, "Country crawl trên server chỉ được phép chạy Google Maps; chưa bật bộ Google Maps scraper.")
     global _process
     current = _progress()
     pid = _process.pid if _process and _process.poll() is None else _saved_pid()
-    if _pid_running(pid):
+    if _crawler_pid_running(pid):
         try:
             root = psutil.Process(pid)
             processes = root.children(recursive=True) + [root]

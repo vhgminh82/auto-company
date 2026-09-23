@@ -132,6 +132,34 @@ def ensure_schema():
             with engine.begin() as connection:
                 connection.execute(text(f"ALTER TABLE {table} ADD COLUMN owner_email VARCHAR(320) NOT NULL DEFAULT ''"))
 
+    # List names are unique per owner, not globally.  The original schema used
+    # unique=True on name, which created a global constraint and rejected two
+    # different users from using the same list name.
+    for table, constraint_name in (
+        ("emkt_lists", "uq_emkt_lists_owner_name"),
+        ("contact_lists", "uq_contact_lists_owner_name"),
+    ):
+        unique_constraints = inspect(engine).get_unique_constraints(table)
+        owner_name_constraint = next(
+            (item for item in unique_constraints if item.get("name") == constraint_name),
+            None,
+        )
+        global_name_constraints = [
+            item for item in unique_constraints
+            if item.get("name") != constraint_name and item.get("column_names") == ["name"]
+        ]
+        with engine.begin() as connection:
+            for item in global_name_constraints:
+                if item.get("name"):
+                    connection.execute(text(
+                        f'ALTER TABLE "{table}" DROP CONSTRAINT "{item["name"]}"'
+                    ))
+            if not owner_name_constraint:
+                connection.execute(text(
+                    f'ALTER TABLE "{table}" ADD CONSTRAINT "{constraint_name}" '
+                    "UNIQUE (owner_email, name)"
+                ))
+
 
 class Base(DeclarativeBase):
     pass
